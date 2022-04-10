@@ -1,16 +1,18 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 
-	"github.com/h44z/wg-portal/internal/core"
-	"github.com/h44z/wg-portal/internal/persistence"
-
-	"github.com/pkg/errors"
-
+	"github.com/h44z/wg-portal/internal/adapters/auth"
+	"github.com/h44z/wg-portal/internal/config"
+	"github.com/h44z/wg-portal/internal/domain"
+	"github.com/h44z/wg-portal/internal/ports"
+	"github.com/h44z/wg-portal/internal/service"
 	"github.com/urfave/cli/v2"
 )
 
@@ -19,162 +21,174 @@ const (
 	interfaceFlag = "interface"
 )
 
-var backend core.Backend
+type cliApp struct {
+	app *cli.App
 
-var globalFlags = []cli.Flag{
-	&cli.StringFlag{
-		Name:  dsnFlag,
-		Value: "./sqlite.db",
-		Usage: "A DSN for the data store.",
-	},
+	authenticator ports.Authenticator
 }
 
-var commands = []*cli.Command{
-	{
-		Name:    "list",
-		Aliases: []string{"l"},
-		Usage:   "list interfaces or peers",
-		Subcommands: []*cli.Command{
-			{
-				Name:      "interface",
-				Usage:     "show interface information",
-				ArgsUsage: "<interface identifier>",
-				Action: func(c *cli.Context) error {
-					if c.Args().Len() != 1 {
-						return errors.New("missing/invalid interface identifier")
-					}
-					interfaceIdentifier := persistence.InterfaceIdentifier(strings.TrimSpace(c.Args().Get(0)))
+func NewCliApp(authenticator ports.Authenticator) *cliApp {
+	a := &cliApp{
+		app:           cli.NewApp(),
+		authenticator: authenticator,
+	}
 
-					cfg, err := backend.GetInterface(interfaceIdentifier)
-					if err != nil {
-						return errors.WithMessage(err, "failed to get interface")
-					}
+	a.app.Name = "wg-portal"
+	a.app.Version = "0.0.1"
+	a.app.Usage = "WireGuard Portal CLI client"
+	a.app.EnableBashCompletion = true
+	a.app.Commands = a.Commands()
+	a.app.Flags = a.Flags()
+	a.app.Before = func(c *cli.Context) error {
+		dsn := c.String(dsnFlag)
 
-					peers, err := backend.GetPeers(interfaceIdentifier)
-					if err != nil {
-						return errors.WithMessage(err, "failed to get interface peers")
-					}
+		fmt.Println("DSN:", dsn)
+		return nil
+	}
+	return a
+}
 
-					config, err := backend.GetInterfaceConfig(cfg, peers)
-					if err != nil {
-						return errors.WithMessage(err, "failed to get interface config")
-					}
+func (a *cliApp) Flags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:  dsnFlag,
+			Value: "./sqlite.db",
+			Usage: "A DSN for the data store.",
+		},
+	}
+}
 
-					fmt.Println(config)
+func (a *cliApp) Commands() []*cli.Command {
+	return []*cli.Command{
+		{
+			Name:      "plainauth",
+			Aliases:   []string{"p"},
+			Usage:     "authenticate",
+			ArgsUsage: "<authenticator identifier> <username> <password>",
+			Action: func(c *cli.Context) error {
+				if c.Args().Len() != 3 {
+					return errors.New("missing/invalid parameters, usage: <authenticator identifier> <username> <password>")
+				}
+				authenticatorIdentifier := domain.AuthenticatorId(strings.TrimSpace(c.Args().Get(0)))
+				username := strings.TrimSpace(c.Args().Get(1))
+				password := strings.TrimSpace(c.Args().Get(2))
 
-					return nil
-				},
-			},
-			{
-				Name:  "interfaces",
-				Usage: "list all interfaces",
-				Action: func(c *cli.Context) error {
-					interfaces, err := backend.GetInterfaces()
-					if err != nil {
-						return errors.WithMessage(err, "failed to get all interfaces")
-					}
+				cfg, err := a.authenticator.GetAuthenticator(authenticatorIdentifier)
+				if err != nil {
+					return err
+				}
 
-					fmt.Println("Managed WireGuard Interfaces:")
-					for i, cfg := range interfaces {
-						desc := ""
-						if cfg.DisplayName != "" {
-							desc = fmt.Sprintf(" (%s)", cfg.DisplayName)
-						}
-						fmt.Printf(" %d\t%s%s\n", i, cfg.Identifier, desc)
-					}
+				if cfg.GetType() != domain.AuthenticatorTypePlain {
+					return errors.New("wrong authenticator type")
+				}
 
-					importable, err := backend.GetImportableInterfaces()
-					if err != nil {
-						return errors.WithMessage(err, "failed to get importable interfaces")
-					}
+				fmt.Println("Testing authenticator", cfg.GetName(), "of type", cfg.GetType())
 
-					fmt.Println("Importable WireGuard Interfaces:")
-					i := 0
-					for cfg := range importable {
-						fmt.Printf(" %d\t%s\n", i, cfg.Identifier)
-						i++
-					}
+				ctx := context.Background()
+				fmt.Println("Authenticated:", a.authenticator.IsAuthenticated(ctx))
+				ctx, err = a.authenticator.AuthenticateContext(context.Background(), authenticatorIdentifier,
+					username, password)
+				if err != nil {
+					return err
+				}
+				fmt.Println("Authenticated:", a.authenticator.IsAuthenticated(ctx))
+				fmt.Println(a.authenticator.GetUserInfo(ctx))
 
-					return nil
-				},
-			},
-			{
-				Name:      "peers",
-				Usage:     "list all peers",
-				ArgsUsage: "<interface identifier>",
-				Action: func(c *cli.Context) error {
-					if c.Args().Len() != 1 {
-						return errors.New("missing/invalid interface identifier")
-					}
-					interfaceIdentifier := persistence.InterfaceIdentifier(strings.TrimSpace(c.Args().Get(0)))
-
-					peers, err := backend.GetPeers(interfaceIdentifier)
-					if err != nil {
-						return errors.WithMessage(err, "failed to get all peers")
-					}
-
-					fmt.Println("WireGuard Peers:")
-					for i, cfg := range peers {
-						desc := ""
-						if cfg.DisplayName != "" {
-							desc = fmt.Sprintf(" (%s)", cfg.DisplayName)
-						}
-						fmt.Printf(" %d\t%s%s\n", i, cfg.Identifier, desc)
-					}
-					return nil
-				},
+				return nil
 			},
 		},
-	},
-	{
-		Name:      "import",
-		Aliases:   []string{"i"},
-		Usage:     "import existing interface",
-		ArgsUsage: "<interface identifier>",
-		Action: func(c *cli.Context) error {
-			if c.Args().Len() != 1 {
-				return errors.New("missing/invalid interface identifier")
-			}
-			importIdentifier := strings.TrimSpace(c.Args().Get(0))
+		{
+			Name:      "oauth",
+			Aliases:   []string{"p"},
+			Usage:     "authenticate against oauth",
+			ArgsUsage: "<authenticator identifier>",
+			Action: func(c *cli.Context) error {
+				if c.Args().Len() != 1 {
+					return errors.New("missing/invalid parameters, usage: <authenticator identifier>")
+				}
+				authenticatorIdentifier := domain.AuthenticatorId(strings.TrimSpace(c.Args().Get(0)))
 
-			err := backend.ImportInterfaceById(persistence.InterfaceIdentifier(importIdentifier))
-			if err != nil {
-				return err
-			}
+				cfg, err := a.authenticator.GetAuthenticator(authenticatorIdentifier)
+				if err != nil {
+					return err
+				}
+				if cfg.GetType() != domain.AuthenticatorTypeOAuth && cfg.GetType() != domain.AuthenticatorTypeOidc {
+					return errors.New("wrong authenticator type")
+				}
 
-			fmt.Println("Imported interface", importIdentifier)
+				fmt.Println("Testing authenticator", cfg.GetName(), "of type", cfg.GetType())
 
-			return nil
+				ctx := context.Background()
+				fmt.Println("Authenticated:", a.authenticator.IsAuthenticated(ctx))
+				url, state, nonce, err := a.authenticator.GetOauthUrl(authenticatorIdentifier)
+				if err != nil {
+					return err
+				}
+
+				fmt.Println("Generated state:", state, "and nonce:", nonce)
+				fmt.Println("Please visit the following URL:", url)
+				fmt.Println("Finish the authentication steps, you will recieve a code, state and nonce parameter.")
+				fmt.Println("Ensure that the retrieved state and nonce is the same as stated above!")
+				fmt.Println("Copy and paste the retrieved code here:")
+
+				var code string
+				_, err = fmt.Scanln(&code)
+				if err != nil {
+					return err
+				}
+
+				ctx, err = a.authenticator.AuthenticateContextWithCode(ctx, authenticatorIdentifier, code, state, nonce)
+				if err != nil {
+					return err
+				}
+				fmt.Println("Authenticated:", a.authenticator.IsAuthenticated(ctx))
+				fmt.Println(a.authenticator.GetUserInfo(ctx))
+
+				return nil
+			},
 		},
-	},
+	}
+}
+
+func (a *cliApp) Run() error {
+	return a.app.Run(os.Args)
 }
 
 func main() {
-	app := cli.NewApp()
-	app.Name = "wg-portal"
-	app.Version = "0.0.1"
-	app.Usage = "WireGuard Portal CLI client"
-	app.EnableBashCompletion = true
-	app.Commands = commands
-	app.Flags = globalFlags
-	app.Before = func(c *cli.Context) error {
-		dsn := c.String(dsnFlag)
-		database, err := persistence.NewDatabase(persistence.DatabaseConfig{
-			Type: "sqlite",
-			DSN:  dsn,
-		})
-		if err != nil {
-			return errors.WithMessagef(err, "failed to initialize persistent store")
-		}
+	cfg, err := config.Load()
+	assertNoError(err)
 
-		backend, err = core.NewPersistentBackend(database)
-		if err != nil {
-			return errors.WithMessagef(err, "backend failed to initialize")
-		}
-		return nil
+	var plainAuth []ports.PlainAuthenticatorRepository
+	var oauthAuth []ports.OauthAuthenticatorRepository
+
+	for i := range cfg.Auth.Ldap {
+		authenticator, err := auth.NewLdapAuthenticator(&cfg.Auth.Ldap[i])
+		assertNoError(err)
+		plainAuth = append(plainAuth, authenticator)
+	}
+	for i := range cfg.Auth.OAuth {
+		authenticator, err := auth.NewOauthAuthenticator("http://localhost:8080/auth/", &cfg.Auth.OAuth[i])
+		assertNoError(err)
+		oauthAuth = append(oauthAuth, authenticator)
+	}
+	for i := range cfg.Auth.OpenIDConnect {
+		authenticator, err := auth.NewOidcAuthenticator("http://localhost:8080/auth/", &cfg.Auth.OpenIDConnect[i])
+		assertNoError(err)
+		oauthAuth = append(oauthAuth, authenticator)
 	}
 
-	err := app.Run(os.Args)
+	authSvc, err := service.NewAuthenticatorService(plainAuth, oauthAuth)
+	assertNoError(err)
+
+	fmt.Println("Registered", len(authSvc.GetAuthenticators()), "authentication backends")
+
+	app := NewCliApp(authSvc)
+
+	err = app.Run()
+	assertNoError(err)
+}
+
+func assertNoError(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
