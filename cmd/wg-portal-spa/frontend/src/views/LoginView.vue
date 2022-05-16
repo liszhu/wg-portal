@@ -18,7 +18,7 @@
                 <div class="input-group mb-3">
                   <span class="input-group-text"><span class="far fa-user p-2"></span></span>
                   <input type="text" name="username" class="form-control" id="inputUsername"
-                    aria-describedby="usernameHelp" placeholder="Enter username">
+                    aria-describedby="usernameHelp" :placeholder="$t('login.userMessage')">
                 </div>
                 <!--small id="usernameHelp" class="form-text text-muted">We'll never share your email with anyone else.</small-->
               </div>
@@ -26,7 +26,7 @@
                 <label for="inputPassword" class="form-label">{{ $t('login.pass') }}</label>
                 <div class="input-group mb-3">
                   <span class="input-group-text"><span class="fas fa-lock p-2"></span></span>
-                  <input type="password" name="password" class="form-control" id="inputPassword" placeholder="Password">
+                  <input type="password" name="password" class="form-control" id="inputPassword" :placeholder="$t('login.passMessage')">
                 </div>
               </div>
 
