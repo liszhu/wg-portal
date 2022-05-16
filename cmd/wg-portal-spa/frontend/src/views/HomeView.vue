@@ -1,22 +1,6 @@
 <script setup>
 </script>
 
-<script>
-export default {
-  data() {
-    return {
-      locale: 'en',
-    };
-  },
-  watch: {
-    locale(val) {
-      this.$i18n.locale = val;
-    },
-  },
-
-};
-</script>
-
 <template>
   <div class="page-header">
     <h1>{{ $t('home.h1') }}</h1>
@@ -42,10 +26,10 @@ export default {
     <p>{{ $t('home.admin.instruct') }}</p>
     <p class="lead">
       <a href="/admin/" class="btn btn-primary btn-lg" title="WireGuard Administration">{{ $t('home.admin.btn-1') }}</a>
-      <a href="/admin/users/" class="btn btn-primary btn-lg" title="User Administration">{{ $t('home.admin.btn-2')
-      }}</a>
+      <a href="/admin/users/" class="btn btn-primary btn-lg" title="User Administration">{{ $t('home.admin.btn-2') }}</a>
     </p>
   </div>
+
   <h3 class="mt-5">{{ $t('home.info') }}</h3>
   <div class="row">
     <div class="col-lg-4">

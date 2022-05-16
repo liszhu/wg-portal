@@ -99,8 +99,7 @@ import Confirmation from "../components/Confirmation.vue";
       </div>
       <div class="col-6">
         <div class="form-group row">
-          <label for="paginationSelector" class="col-sm-6 col-form-label text-end">{{ $t('interfaces.pagination.size')
-          }}:</label>
+          <label for="paginationSelector" class="col-sm-6 col-form-label text-end">{{ $t('interfaces.pagination.size') }}:</label>
           <div class="col-sm-6">
             <select class="form-select" id="paginationSelector">
               <option value="configurator.id">25</option>

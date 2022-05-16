@@ -4,23 +4,25 @@ import { RouterLink, RouterView } from 'vue-router'
 
 <script>
 export default {
-  name: 'app',
-  data() {
-    return {
-      locale: 'en',
-    };
-  },
-  watch: {
-    locale(val) {
-      this.$i18n.locale = val;
-    },
-  },
   methods: {
-    toggleLang() {
-      this.locale = this.locale === 'en' ? 'de' : 'en';
-    },
+    switchLanguage(lang) {
+      if (this.$i18n.locale !== lang) {
+        localStorage.setItem('wgLang', lang)
+        this.$i18n.locale = lang
+      }
+    }
   },
-};
+  computed: {
+    languageFlag() {
+      // `this` points to the component instance
+      let lang = this.$i18n.locale.toLowerCase()
+      if (lang === "en") {
+        lang = "us"
+      }
+      return "fi-" + lang
+    }
+  }
+}
 </script>
 
 <template>
@@ -39,12 +41,6 @@ export default {
           </li>
           <li class="nav-item">
             <RouterLink class="nav-link" :to="{ name: 'interfaces' }">{{ $t('menu.interfaces') }}</RouterLink>
-          </li>
-          <li class="nav-item">
-            <button @click="toggleLang">
-              {{ $t('menu.lang') }}
-            </button>
-
           </li>
         </ul>
 
@@ -80,7 +76,21 @@ export default {
 
   <footer class="page-footer mt-auto">
     <div class="container mt-5">
-      <p>Powered by <img height="20" src="@/assets/logo.svg" alt="Vue.JS" /></p>
+      <div class="row align-items-center">
+        <div class="col-6">Powered by <img height="20" src="@/assets/logo.svg" alt="Vue.JS" /></div>
+        <div class="col-6 text-end">
+          <div class="btn-group" role="group" aria-label="{{ $t('menu.lang') }}">
+            <div class="btn-group" role="group">
+              <button type="button" class="btn btn btn-secondary pe-0" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="fi" :class="languageFlag"></span></button>
+              <div class="dropdown-menu" aria-labelledby="btnGroupDrop3" style="">
+                <a class="dropdown-item" @click.prevent="switchLanguage('en')" href="#"><span class="fi fi-us"></span> English</a>
+                <a class="dropdown-item" @click.prevent="switchLanguage('de')" href="#"><span class="fi fi-de"></span> Deutsch</a>
+                <a class="dropdown-item" @click.prevent="switchLanguage('es')" href="#"><span class="fi fi-es"></span> Español</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </footer>
 </template>
