@@ -25,7 +25,7 @@
     <hr class="my-4">
     <p>{{ $t('home.admin.instruct') }}</p>
     <p class="lead">
-      <a href="/admin/" class="btn btn-primary btn-lg" title="WireGuard Administration">{{ $t('home.admin.btn-1') }}</a>
+      <a href="/admin/" class="btn btn-primary btn-lg me-2" title="WireGuard Administration">{{ $t('home.admin.btn-1') }}</a>
       <a href="/admin/users/" class="btn btn-primary btn-lg" title="User Administration">{{ $t('home.admin.btn-2') }}</a>
     </p>
   </div>

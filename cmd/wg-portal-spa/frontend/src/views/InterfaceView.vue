@@ -1,6 +1,7 @@
 <script setup>
 import Modal from "../components/Modal.vue";
 import Confirmation from "../components/Confirmation.vue";
+import PeerViewModal from "../components/PeerViewModal.vue";
 
 import {onMounted, ref} from "vue";
 import {peerStore} from "../stores/peers";
@@ -10,6 +11,7 @@ const interfaces = interfaceStore()
 const peers = peerStore()
 
 const searchState = ref("close")
+const viewedPeerId = ref("")
 
 onMounted(() => {
   interfaces.fetch()
@@ -31,6 +33,7 @@ onMounted(() => {
     </template>
   </Modal>
   <Confirmation></Confirmation-->
+  <PeerViewModal :peerId="viewedPeerId" :visible="viewedPeerId!==''" @close="viewedPeerId=''"></PeerViewModal>
 
   <!-- Headline and interface selector -->
   <div class="page-header row">
@@ -82,8 +85,8 @@ onMounted(() => {
           </div>
         </div>
         <div class="card-body d-flex flex-column">
-          <div class="row">
-            <div v-if="interfaces.GetSelected.Mode==='server'" class="col-sm-6">
+          <div v-if="interfaces.GetSelected.Mode==='server'" class="row">
+            <div class="col-sm-6">
               <table class="table table-sm table-borderless device-status-table">
                 <tbody>
                 <tr>
@@ -109,7 +112,7 @@ onMounted(() => {
                 </tbody>
               </table>
             </div>
-            <div v-if="interfaces.GetSelected.Mode==='server'" class="col-sm-6">
+            <div class="col-sm-6">
               <table class="table table-sm table-borderless device-status-table">
                 <tbody>
                 <tr>
@@ -135,8 +138,9 @@ onMounted(() => {
                 </tbody>
               </table>
             </div>
-
-            <div v-if="interfaces.GetSelected.Mode==='client'" class="col-sm-6">
+          </div>
+          <div v-if="interfaces.GetSelected.Mode==='client'" class="row">
+            <div class="col-sm-6">
               <table class="table table-sm table-borderless device-status-table">
                 <tbody>
                 <tr>
@@ -154,7 +158,7 @@ onMounted(() => {
                 </tbody>
               </table>
             </div>
-            <div v-if="interfaces.GetSelected.Mode==='client'" class="col-sm-6">
+            <div class="col-sm-6">
               <table class="table table-sm table-borderless device-status-table">
                 <tbody>
                 <tr>
@@ -213,7 +217,7 @@ onMounted(() => {
         <th scope="col">{{ $t('interfaces.tableHeadings[1]') }}</th>
         <th scope="col">{{ $t('interfaces.tableHeadings[2]') }}</th>
         <th scope="col">{{ $t('interfaces.tableHeadings[3]') }}</th>
-        <th scope="col" v-if="interfaces.GetSelected.Mode==='client'">{{ $t('interfaces.tableHeadings[5]') }}</th>
+        <th scope="col" v-if="interfaces.GetSelected.Mode==='client'">{{ $t('interfaces.tableHeadings[4]') }}</th>
         <th scope="col">{{ $t('interfaces.tableHeadings[5]') }}</th>
         <th scope="col"></th><!-- Actions -->
       </tr>
@@ -232,7 +236,7 @@ onMounted(() => {
           <td v-if="interfaces.GetSelected.Mode==='client'">{{peer.Endpoint}}</td>
           <td>{{peer.LastConnected}}</td>
           <td class="text-center">
-            <a href="#" title="Show peer"><i class="fas fa-eye me-2"></i></a>
+            <a @click.prevent="viewedPeerId=peer.Identifier" href="#" title="Show peer"><i class="fas fa-eye me-2"></i></a>
             <a href="#" title="Edit peer"><i class="fas fa-cog"></i></a>
           </td>
         </tr>

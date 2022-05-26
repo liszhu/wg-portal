@@ -11,6 +11,9 @@ export const peerStore = defineStore({
     fetching: false,
   }),
   getters: {
+    Find: (state) => {
+      return (id) => state.peers.find((p) => p.Identifier === id)
+    },
     Count: (state) => state.peers.length,
     FilteredCount: (state) => state.Filtered.length,
     All: (state) => state.peers,
