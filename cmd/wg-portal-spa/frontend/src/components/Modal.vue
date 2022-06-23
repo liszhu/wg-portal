@@ -8,7 +8,7 @@
               <h5 class="modal-title">{{ title }}</h5>
               <button @click="closeModal" class="btn-close" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body col-md-12">
               <slot></slot>
             </div>
             <div class="modal-footer">

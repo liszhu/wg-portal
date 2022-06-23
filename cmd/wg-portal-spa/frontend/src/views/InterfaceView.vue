@@ -2,6 +2,7 @@
 import Modal from "../components/Modal.vue";
 import Confirmation from "../components/Confirmation.vue";
 import PeerViewModal from "../components/PeerViewModal.vue";
+import PeerEditModal from "../components/PeerEditModal.vue";
 
 import {onMounted, ref} from "vue";
 import {peerStore} from "../stores/peers";
@@ -12,6 +13,7 @@ const peers = peerStore()
 
 const searchState = ref("close")
 const viewedPeerId = ref("")
+const editPeerId = ref("")
 
 onMounted(() => {
   interfaces.fetch()
@@ -34,6 +36,7 @@ onMounted(() => {
   </Modal>
   <Confirmation></Confirmation-->
   <PeerViewModal :peerId="viewedPeerId" :visible="viewedPeerId!==''" @close="viewedPeerId=''"></PeerViewModal>
+  <PeerEditModal :peerId="editPeerId" :visible="editPeerId!==''" @close="editPeerId=''"></PeerEditModal>
 
   <!-- Headline and interface selector -->
   <div class="page-header row">
@@ -199,7 +202,7 @@ onMounted(() => {
     <div class="col-12 col-lg-3 text-lg-end">
       <a v-if="interfaces.GetSelected.Mode==='server' && peers.Count!==0" class="btn btn-primary" href="#" title="Send mail to all peers"><i class="fa fa-paper-plane"></i></a>
       <a class="btn btn-primary ms-2" href="#" title="Add multiple peers"><i class="fa fa-plus me-1"></i><i class="fa fa-users"></i></a>
-      <a class="btn btn-primary ms-2" href="#" title="Add a peer"><i class="fa fa-plus me-1"></i><i class="fa fa-user"></i></a>
+      <a @click.prevent="editPeerId='#NEW#'" class="btn btn-primary ms-2" href="#" title="Add a peer"><i class="fa fa-plus me-1"></i><i class="fa fa-user"></i></a>
     </div>
   </div>
   <div class="mt-2 table-responsive" v-if="interfaces.Count!==0">
@@ -237,7 +240,7 @@ onMounted(() => {
           <td>{{peer.LastConnected}}</td>
           <td class="text-center">
             <a @click.prevent="viewedPeerId=peer.Identifier" href="#" title="Show peer"><i class="fas fa-eye me-2"></i></a>
-            <a href="#" title="Edit peer"><i class="fas fa-cog"></i></a>
+            <a @click.prevent="editPeerId=peer.Identifier" href="#" title="Edit peer"><i class="fas fa-cog"></i></a>
           </td>
         </tr>
       </tbody>

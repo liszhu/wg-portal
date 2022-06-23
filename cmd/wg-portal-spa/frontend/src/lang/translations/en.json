@@ -82,6 +82,14 @@
     "pagination": {
       "size": "Number of Elements",
       "all": "All (slow)"
+    },
+    "peer": {
+      "new": "Create new peer",
+      "edit": "Edit peer"
+    },
+    "endpoint": {
+      "new": "Create new endpoint",
+      "edit": "Edit endpoint"
     }
   },
   "login": {
@@ -103,5 +111,10 @@
     "admin": "Administration",
     "addUser": "Add User",
     "addMulti": "Add Multiple Users"
+  },
+  "modals": {
+    "peeredit": {
+      "privatekey": "Private Key"
+    }
   }
 }
