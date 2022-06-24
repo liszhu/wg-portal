@@ -10,7 +10,7 @@ export const interfaceStore = defineStore({
   getters: {
     Count: (state) => state.interfaces.length,
     All: (state) => state.interfaces,
-    GetSelected: (state) => state.interfaces.filter((i) => i.Identifier === state.selected)[0],
+    GetSelected: (state) => state.interfaces.find((i) => i.Identifier === state.selected),
     isFetching: (state) => state.fetching,
   },
   actions: {

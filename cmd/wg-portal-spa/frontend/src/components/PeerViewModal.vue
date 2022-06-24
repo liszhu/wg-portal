@@ -1,10 +1,11 @@
 <script setup>
 import Modal from "./Modal.vue";
 import {peerStore} from "../stores/peers";
-import {storeToRefs} from "pinia";
+import {interfaceStore} from "../stores/interfaces";
 import {computed} from "vue";
 
 const peers = peerStore()
+const interfaces = interfaceStore()
 
 const props = defineProps({
   peerId: String,
@@ -19,6 +20,19 @@ function close() {
 
 const selectedPeer = computed(() => {
   return peers.Find(props.peerId)
+})
+
+const selectedInterface = computed(() => {
+  let i = interfaces.GetSelected;
+
+  if (!i) {
+    i = { // dummy interface to avoid 'undefined' exceptions
+      Identifier: "none",
+      Mode: "server"
+    }
+  }
+
+  return i
 })
 
 const title = computed(() => {
@@ -61,7 +75,7 @@ const title = computed(() => {
             </div>
           </div>
         </div>
-        <div class="accordion-item">
+        <div v-if="selectedInterface.Mode==='server'" class="accordion-item">
           <h2 class="accordion-header" id="headingTwo">
             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
               Peer Configuration

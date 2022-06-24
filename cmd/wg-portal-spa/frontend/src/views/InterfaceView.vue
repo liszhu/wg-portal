@@ -210,7 +210,7 @@ onMounted(() => {
     <h4>{{ $t('interfaces.noPeerSelect.h4') }}</h4>
     <p>{{ $t('interfaces.noPeerSelect.message') }}</p>
     </div>
-    <table v-if="peers.Count!==0" class="table table-sm" id="userTable">
+    <table v-if="peers.Count!==0" class="table table-sm" id="peerTable">
       <thead>
       <tr>
         <th scope="col">

@@ -26,6 +26,8 @@ export default {
 </script>
 
 <template>
+  <notifications position="top right" :duration="3000" :ignore-duplicates="true" />
+
   <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
     <div class="container-fluid">
       <a class="navbar-brand" href="/"><img src="/img/header-logo.png" alt="WireGuard Portal" /></a>
@@ -41,6 +43,9 @@ export default {
           </li>
           <li class="nav-item">
             <RouterLink class="nav-link" :to="{ name: 'interfaces' }">{{ $t('menu.interfaces') }}</RouterLink>
+          </li>
+          <li class="nav-item">
+            <RouterLink class="nav-link" :to="{ name: 'users' }">{{ $t('menu.users') }}</RouterLink>
           </li>
         </ul>
 
@@ -94,3 +99,9 @@ export default {
     </div>
   </footer>
 </template>
+
+<style>
+.vue-notification-group {
+  margin-top:5px;
+}
+</style>

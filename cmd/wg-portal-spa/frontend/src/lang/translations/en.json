@@ -3,6 +3,7 @@
   "menu": {
     "home": "Home",
     "interfaces": "Interfaces",
+    "users": "Users",
     "firstname": "Firstname",
     "lastname": "Lastname",
     "login": "Login",
@@ -108,7 +109,7 @@
     "lastname": "Lastname",
     "source": "Source",
     "peers": "Peers",
-    "admin": "Administration",
+    "admin": "Admin",
     "addUser": "Add User",
     "addMulti": "Add Multiple Users"
   },

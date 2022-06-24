@@ -1,21 +1,34 @@
 <script setup>
 import Confirmation from "../components/Confirmation.vue";
+import {userStore} from "../stores/users";
+import {ref,onMounted} from "vue";
+
+const users = userStore()
+
+const searchState = ref("close")
+
+onMounted(() => {
+  users.fetch()
+})
 </script>
 
 <template>
-  <Confirmation></Confirmation>
-  <!-- Headline and interface selector -->
-  <div class="page-header row">
-    <div class="col-12">
-      <h1>{{ $t('user.h1') }}</h1>
-    </div>
-  </div>
+  <!--Confirmation></Confirmation -->
 
   <!-- User list -->
   <div class="mt-4 row">
-    <div class="col-12 col-lg-8">
+    <div class="col-12 col-lg-5">
+      <h1>{{ $t('user.h1') }}</h1>
     </div>
     <div class="col-12 col-lg-4 text-lg-end">
+      <div class="form-group d-inline">
+        <div class="input-group mb-3">
+          <input type="text" class="form-control" placeholder="Search..." v-model="users.filter" @keyup="users.afterPageSizeChange">
+          <button class="input-group-text btn btn-primary" title="Search"><i class="fa-solid fa-search"></i></button>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-3 text-lg-end">
       <a class="btn btn-primary" href="#" title="Send mail to selected users"><i class="fa fa-paper-plane"></i></a>
       <a class="btn btn-primary ms-2" href="#" title="Add multiple users"><i class="fa fa-plus me-1"></i><i
           class="fa fa-users"></i></a>
@@ -24,50 +37,41 @@ import Confirmation from "../components/Confirmation.vue";
     </div>
   </div>
   <div class="mt-2 table-responsive">
-    <table class="table table-sm" id="userTable">
+    <div v-if="users.Count===0">
+      <h4>{{ $t('users.noUsers.h4') }}</h4>
+      <p>{{ $t('users.noUsers.message') }}</p>
+    </div>
+    <table v-if="users.Count!==0"  class="table table-sm" id="userTable">
       <thead>
         <tr>
           <th scope="col">
             <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault" title="Select all">
           </th><!-- select -->
-          <th scope="col">{{ $t('login.id') }}</th>
-          <th scope="col">{{ $t('login.email') }}</th>
-          <th scope="col">{{ $t('login.firstname') }}</th>
-          <th scope="col">{{ $t('login.lastname') }}</th>
-          <th scope="col" class="text-center">{{ $t('login.source') }}</th>
-          <th scope="col" class="text-center">{{ $t('login.peers') }}</th>
-          <th scope="col" class="text-center">{{ $t('login.admin') }}</th>
+          <th scope="col">{{ $t('user.id') }}</th>
+          <th scope="col">{{ $t('user.email') }}</th>
+          <th scope="col">{{ $t('user.firstname') }}</th>
+          <th scope="col">{{ $t('user.lastname') }}</th>
+          <th scope="col" class="text-center">{{ $t('user.source') }}</th>
+          <th scope="col" class="text-center">{{ $t('user.peers') }}</th>
+          <th scope="col" class="text-center">{{ $t('user.admin') }}</th>
           <th scope="col"></th><!-- Actions -->
         </tr>
       </thead>
       <tbody>
-        <tr>
+        <tr v-for="user in users.FilteredAndPaged" :key="user.Identifier">
           <th scope="row">
             <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault">
           </th>
-          <td>The name</td>
-          <td>tester@test.de</td>
-          <td>Franz</td>
-          <td>Tester</td>
-          <td class="text-center"><span class="badge rounded-pill bg-light">LDAP</span></td>
-          <td class="text-center">15</td>
-          <td class="text-center"><span class="text-danger"><i class="fa fa-check-circle"></i></span></td>
+          <td>{{user.Identifier}}</td>
+          <td>{{user.Email}}</td>
+          <td>{{user.Firstname}}</td>
+          <td>{{user.Lastname}}</td>
+          <td class="text-center"><span class="badge rounded-pill bg-light">{{user.Source}}</span></td>
+          <td class="text-center">{{user.Peers}}</td>
           <td class="text-center">
-            <a href="#" title="Show peers"><i class="fa-solid fa-magnifying-glass me-2"></i></a>
-            <a href="#" title="Edit peer"><i class="fas fa-cog"></i></a>
+            <span v-if="user.IsAdmin" class="text-danger"><i class="fa fa-check-circle"></i></span>
+            <span v-else><i class="fa fa-circle-xmark"></i></span>
           </td>
-        </tr>
-        <tr>
-          <th scope="row">
-            <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault">
-          </th>
-          <td>some unique id</td>
-          <td>Volodimirius.longemail@test.de</td>
-          <td>Volodimirius</td>
-          <td>Longnameinus</td>
-          <td class="text-center"><span class="badge rounded-pill bg-light">LDAP</span></td>
-          <td class="text-center">3</td>
-          <td class="text-center"><span><i class="fa fa-circle-xmark"></i></span></td>
           <td class="text-center">
             <a href="#" title="Show peers"><i class="fa-solid fa-magnifying-glass me-2"></i></a>
             <a href="#" title="Edit peer"><i class="fas fa-cog"></i></a>
@@ -81,19 +85,16 @@ import Confirmation from "../components/Confirmation.vue";
     <div class="row">
       <div class="col-6">
         <ul class="pagination pagination-sm">
-          <li class="page-item disabled">
-            <a class="page-link" href="?page={|{intAdd $.Page -1}|}">&laquo;</a>
+          <li class="page-item" :class="{disabled:users.pageOffset===0}">
+            <a class="page-link" @click="users.previousPage">&laquo;</a>
           </li>
 
-          <li class="page-item active">
-            <a class="page-link" href="?page={|{$i}|}">1</a>
-          </li>
-          <li class="page-item active">
-            <a class="page-link" href="?page={|{$i}|}">2</a>
+          <li v-for="page in users.pages" :key="page" class="page-item" :class="{active:users.currentPage===page}">
+            <a class="page-link" @click="users.gotoPage(page)">{{page}}</a>
           </li>
 
-          <li class="page-item disabled">
-            <a class="page-link" href="?page={|{intAdd $.Page 1}|}">&raquo;</a>
+          <li class="page-item" :class="{disabled:!users.hasNextPage}">
+            <a class="page-link" @click="users.nextPage">&raquo;</a>
           </li>
         </ul>
       </div>
@@ -101,11 +102,12 @@ import Confirmation from "../components/Confirmation.vue";
         <div class="form-group row">
           <label for="paginationSelector" class="col-sm-6 col-form-label text-end">{{ $t('interfaces.pagination.size') }}:</label>
           <div class="col-sm-6">
-            <select class="form-select" id="paginationSelector">
-              <option value="configurator.id">25</option>
-              <option value="configurator.id">50</option>
-              <option value="configurator.id">100</option>
-              <option value="configurator.id">{{ $t('interfaces.pagination.all') }}</option>
+            <select class="form-select" v-model.number="users.pageSize" @click="users.afterPageSizeChange()">
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="999999999">{{ $t('interfaces.pagination.all') }}</option>
             </select>
           </div>
         </div>
