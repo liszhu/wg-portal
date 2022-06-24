@@ -5,10 +5,20 @@ GOFILES:=$(shell go list ./... | grep -v /vendor/)
 BUILDDIR=dist
 BINARIES=$(subst cmd/,,$(wildcard cmd/*))
 IMAGE=h44z/wg-portal
+NPMCMD=npm
 
 .PHONY: all test clean phony
 
 all: dep build
+
+build-frontend: dep frontend
+	CGO_ENABLED=0 GOOS=linux $(GOCMD) build -o $(BUILDDIR)/frontend -ldflags "-w -s -extldflags \"-static\"" cmd/wg-portal-spa/*.go
+
+frontend: frontend-dep  # depends on https://nodejs.org
+	cd cmd/wg-portal-spa/frontend; $(NPMCMD) run build
+
+frontend-dep:
+	cd cmd/wg-portal-spa/frontend; $(NPMCMD) install
 
 build: dep $(addsuffix -amd64,$(addprefix $(BUILDDIR)/,$(BINARIES)))
 	cp scripts/wg-portal.service $(BUILDDIR)
