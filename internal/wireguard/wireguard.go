@@ -261,9 +261,21 @@ func (m *wgCtrlManager) GetPeers(interfaceId model.InterfaceIdentifier) ([]*mode
 		peers = append(peers, m.peers[interfaceId][i])
 	}
 
-	sort.Slice(peers, func(i, j int) bool {
-		return peers[i].Identifier < peers[j].Identifier
-	})
+	return peers, nil
+}
+
+func (m *wgCtrlManager) GetPeersForUser(userId model.UserIdentifier) ([]*model.Peer, error) {
+	m.mux.RLock()
+	defer m.mux.RUnlock()
+
+	var peers []*model.Peer
+	for _, interfacePeers := range m.peers {
+		for _, peer := range interfacePeers {
+			if peer.UserIdentifier == userId {
+				peers = append(peers, peer)
+			}
+		}
+	}
 
 	return peers, nil
 }
@@ -422,7 +434,7 @@ func (m *wgCtrlManager) initializeFromStore() error {
 		return nil // no store, nothing to do
 	}
 
-	interfaceIds, err := m.store.GetAvailableInterfaces()
+	interfaceIds, err := m.store.GetInterfaceIds()
 	if err != nil {
 		return errors.WithMessage(err, "failed to get available interfaces")
 	}

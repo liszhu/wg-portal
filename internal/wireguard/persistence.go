@@ -5,7 +5,7 @@ import (
 )
 
 type store interface {
-	GetAvailableInterfaces() ([]model.InterfaceIdentifier, error)
+	GetInterfaceIds() ([]model.InterfaceIdentifier, error)
 
 	GetAllInterfaces(interfaceIdentifiers ...model.InterfaceIdentifier) (map[model.Interface][]model.Peer, error)
 	GetInterface(identifier model.InterfaceIdentifier) (model.Interface, []model.Peer, error)

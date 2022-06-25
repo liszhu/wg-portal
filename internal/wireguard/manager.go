@@ -31,6 +31,7 @@ type configFileGenerator interface {
 
 type peerManager interface {
 	GetPeers(device model.InterfaceIdentifier) ([]*model.Peer, error)
+	GetPeersForUser(userId model.UserIdentifier) ([]*model.Peer, error)
 	SavePeers(peers ...*model.Peer) error
 	RemovePeer(peer model.PeerIdentifier) error
 }

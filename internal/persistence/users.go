@@ -7,14 +7,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (d *Database) GetUsersUnscoped() ([]model.User, error) {
-	var users []model.User
-	if err := d.db.Unscoped().Find(&users).Error; err != nil {
-		return nil, errors.WithMessagef(err, "unable to find unscoped users")
-	}
-	return users, nil
-}
-
 func (d *Database) SaveUser(user *model.User) error {
 	create := user.Identifier == ""
 	now := time.Now()

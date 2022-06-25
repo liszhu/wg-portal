@@ -6,7 +6,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func (d *Database) GetAvailableInterfaces() ([]model.InterfaceIdentifier, error) {
+func (d *Database) GetInterfaceIds() ([]model.InterfaceIdentifier, error) {
 	var interfaces []model.Interface
 	if err := d.db.Select("identifier").Find(&interfaces).Error; err != nil {
 		return nil, errors.WithMessage(err, "unable to find interfaces")

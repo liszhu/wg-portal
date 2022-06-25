@@ -40,12 +40,17 @@ type Peer struct {
 	Identifier     PeerIdentifier `gorm:"primaryKey"` // peer unique identifier
 	UserIdentifier UserIdentifier `gorm:"index"`      // the owner
 	Temporary      *time.Time     `gorm:"-"`          // is this a temporary peer (only prepared, but never saved to db)
+	Disabled       *time.Time     `gorm:"index"`      // if this field is set, the peer is disabled
 
 	// Interface settings for the peer, used to generate the [interface] section in the peer config file
 	Interface *PeerInterfaceConfig `gorm:"embedded"`
 
 	// Stats of the peer, will be lazy loaded by the application logic if needed
 	Stats *PeerStats `gorm:"-"`
+}
+
+func (p Peer) IsDisabled() bool {
+	return p.Disabled != nil
 }
 
 type PeerStats struct {

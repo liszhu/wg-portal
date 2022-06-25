@@ -1,16 +1,14 @@
 package model
 
 import (
-	"database/sql"
 	"time"
 )
 
 type BaseModel struct {
-	CreatedBy  string
-	UpdatedBy  string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
-	DisabledAt sql.NullTime
+	CreatedBy string
+	UpdatedBy string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type PrivateString string

@@ -148,8 +148,12 @@ func (w *wgPortal) setupExternalAuthProviders(ctx context.Context) error {
 }
 
 func (w *wgPortal) RunBackgroundTasks(ctx context.Context) {
-	//TODO implement me
 	logrus.Info("Running background tasks...")
+
+	// TODO: check for "temporary" peers and cleanup
+	// TODO: check ldap authenticator for users (if sync is enabled)
+	// TODO: gather stats of peers and interfaces
+
 	logrus.Info("Finished background tasks")
 }
 
@@ -386,7 +390,19 @@ func (w *wgPortal) UpdateUser(ctx context.Context, u *model.User, options *userU
 
 	// update peer state (disable all peers if user has been disabled)
 	if options.syncPeerState {
-		// TODO: implement
+		peers, err := w.wg.GetPeersForUser(u.Identifier)
+		if err != nil {
+			return nil, fmt.Errorf("failed to retrive peers: %w", err)
+		}
+
+		for _, peer := range peers {
+			peer.Disabled = u.Disabled // copy disabled flag
+		}
+
+		err = w.wg.SavePeers(peers...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to update peers: %w", err)
+		}
 	}
 
 	return u, nil
@@ -397,24 +413,101 @@ func (w *wgPortal) DeleteUser(ctx context.Context, identifier model.UserIdentifi
 		options = UserDeleteOptions()
 	}
 
-	err := w.users.DeleteUser(identifier)
+	peers, err := w.wg.GetPeersForUser(identifier)
 	if err != nil {
-		return fmt.Errorf("deletion error: %w", err)
+		return fmt.Errorf("failed to retrive peers: %w", err)
 	}
 
 	// delete all peers of the given user
 	if options.deletePeers {
-		// TODO: implement
+		for _, peer := range peers {
+			err = w.wg.RemovePeer(peer.Identifier)
+			if err != nil {
+				return fmt.Errorf("failed to delete peer %s: %w", peer.Identifier, err)
+			}
+		}
 	} else { // unlink all previous linked peers
-		// TODO: implement
+		for _, peer := range peers {
+			peer.UserIdentifier = ""
+		}
+
+		err = w.wg.SavePeers(peers...)
+		if err != nil {
+			return fmt.Errorf("failed to update peers: %w", err)
+		}
+	}
+
+	err = w.users.DeleteUser(identifier)
+	if err != nil {
+		return fmt.Errorf("deletion error: %w", err)
 	}
 
 	return nil
 }
 
 func (w *wgPortal) GetInterfaces(ctx context.Context, options *interfaceSearchOptions) ([]model.Interface, error) {
-	//TODO implement me
-	panic("implement me")
+	if options == nil {
+		options = InterfaceSearchOptions()
+	}
+
+	interfaces, err := w.findAndSortInterfaces(options)
+	if err != nil {
+		return nil, err
+	}
+
+	filteredInterfaces := make([]model.Interface, len(interfaces))
+	for i := range interfaces {
+		filteredInterfaces[i] = *interfaces[i]
+	}
+
+	return filteredInterfaces, nil
+}
+
+func (w *wgPortal) findAndSortInterfaces(options *interfaceSearchOptions) ([]*model.Interface, error) {
+	var interfaces []*model.Interface
+	var err error
+
+	// find
+	interfaces, err = w.wg.GetInterfaces()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load interfaces from manager: %w", err)
+	}
+
+	// filter in place
+	n := 0
+	filterStr := strings.ToLower(options.filter)
+	for _, iface := range interfaces {
+		if options.typ != "" && iface.Type != options.typ {
+			continue
+		}
+
+		if strings.Contains(strings.ToLower(string(iface.Identifier)), filterStr) {
+			interfaces[n] = iface
+			n++
+		}
+		if strings.Contains(strings.ToLower(iface.DisplayName), filterStr) {
+			interfaces[n] = iface
+			n++
+		}
+	}
+
+	// sort
+	sort.Slice(interfaces, func(i, j int) bool {
+		sortRes := false
+		switch strings.ToLower(options.sortBy) {
+		case "displayname", "name", "display_name":
+			sortRes = interfaces[i].DisplayName < interfaces[j].DisplayName
+		default:
+			sortRes = interfaces[i].Identifier < interfaces[j].Identifier
+		}
+
+		if options.sortDirection == SortDesc {
+			sortRes = !sortRes
+		}
+
+		return sortRes
+	})
+	return interfaces, nil
 }
 
 func (w *wgPortal) CreateInterface(ctx context.Context, m *model.Interface) (*model.Interface, error) {

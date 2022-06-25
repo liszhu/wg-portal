@@ -2,8 +2,6 @@ package model
 
 import (
 	"time"
-
-	"gorm.io/gorm"
 )
 
 const (
@@ -18,8 +16,10 @@ type UserSource string
 
 // User is the user model that gets linked to peer entries, by default an empty user model with only the email address is created
 type User struct {
+	BaseModel
+
 	// required fields
-	Identifier UserIdentifier `gorm:"primaryKey"`
+	Identifier UserIdentifier `gorm:"primaryKey;column:identifier"`
 	Email      string         `form:"email" binding:"required,email"`
 	Source     UserSource
 	IsAdmin    bool
@@ -32,9 +32,9 @@ type User struct {
 
 	// optional, integrated password authentication
 	Password PrivateString `form:"password" binding:"omitempty"`
+	Disabled *time.Time    `gorm:"index;column:disabled"` // if this field is set, the peer is disabled
+}
 
-	// database internal fields
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt gorm.DeletedAt `gorm:"index" json:",omitempty"` // used as a "deactivated" flag
+func (u User) IsDisabled() bool {
+	return u.Disabled != nil
 }

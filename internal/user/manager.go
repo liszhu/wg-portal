@@ -10,7 +10,6 @@ import (
 )
 
 type loader interface {
-	GetActiveUser(id model.UserIdentifier) (*model.User, error)
 	GetUser(id model.UserIdentifier) (*model.User, error)
 	GetActiveUsers() ([]*model.User, error)
 	GetAllUsers() ([]*model.User, error)
@@ -67,28 +66,13 @@ func (p *persistentManager) GetUser(id model.UserIdentifier) (*model.User, error
 	return p.users[id], nil
 }
 
-func (p *persistentManager) GetActiveUser(id model.UserIdentifier) (*model.User, error) {
-	p.mux.RLock()
-	defer p.mux.RUnlock()
-
-	if !p.userExists(id) {
-		return nil, ErrNotFound
-	}
-
-	if !p.userIsEnabled(id) {
-		return nil, ErrDisabled
-	}
-
-	return p.users[id], nil
-}
-
 func (p *persistentManager) GetActiveUsers() ([]*model.User, error) {
 	p.mux.RLock()
 	defer p.mux.RUnlock()
 
 	users := make([]*model.User, 0, len(p.users))
 	for _, user := range p.users {
-		if !user.DeletedAt.Valid {
+		if !user.IsDisabled() {
 			users = append(users, user)
 		}
 	}
@@ -156,6 +140,17 @@ func (p *persistentManager) UpdateUser(user *model.User) error {
 		return ErrNotFound
 	}
 
+	// Hash user password (if set)
+	if user.Password != "" {
+		hashedPassword, err := p.HashPassword(string(user.Password))
+		if err != nil {
+			return fmt.Errorf("unable to hash password: %w", err)
+		}
+		user.Password = model.PrivateString(hashedPassword)
+	} else {
+		user.Password = p.users[user.Identifier].Password // keep current password
+	}
+
 	p.users[user.Identifier] = user
 
 	err := p.persistUser(user.Identifier, false)
@@ -192,7 +187,7 @@ func (p *persistentManager) initializeFromStore() error {
 		return nil // no store, nothing to do
 	}
 
-	users, err := p.store.GetUsersUnscoped()
+	users, err := p.store.GetUsers()
 	if err != nil {
 		return fmt.Errorf("failed to get all users: %w", err)
 	}
@@ -213,7 +208,7 @@ func (p *persistentManager) userExists(id model.UserIdentifier) bool {
 }
 
 func (p *persistentManager) userIsEnabled(id model.UserIdentifier) bool {
-	if user, ok := p.users[id]; ok && !user.DeletedAt.Valid {
+	if user, ok := p.users[id]; ok && user.Disabled == nil {
 		return true
 	}
 	return false
