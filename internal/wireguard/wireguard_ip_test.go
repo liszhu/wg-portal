@@ -1,9 +1,12 @@
 package wireguard
 
 import (
+	"fmt"
 	"net"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/h44z/wg-portal/internal/model"
 	"github.com/vishvananda/netlink"
@@ -417,9 +420,9 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 
 func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 	type args struct {
-		id         model.InterfaceIdentifier
-		subnetCidr string
-		increment  []bool
+		id          model.InterfaceIdentifier
+		subnetCidr  string
+		reservedIps []*netlink.Addr
 	}
 	tests := []struct {
 		name    string
@@ -447,7 +450,7 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "V4_1_increment",
+			name: "V4_1_reserved_ip",
 			mgr: &wgCtrlManager{
 				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
 				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
@@ -458,9 +461,9 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 				},
 			},
 			args: args{
-				id:         "wg0",
-				subnetCidr: "10.0.0.0/24",
-				increment:  []bool{true},
+				id:          "wg0",
+				subnetCidr:  "10.0.0.0/24",
+				reservedIps: []*netlink.Addr{ignoreNetlinkError(parseCIDR("10.0.0.1/24"))},
 			},
 			want:    ignoreNetlinkError(parseCIDR("10.0.0.4/24")),
 			wantErr: false,
@@ -478,13 +481,12 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 			args: args{
 				id:         "wg0",
 				subnetCidr: "10.0.0.2/32",
-				increment:  []bool{true},
 			},
 			want:    nil,
 			wantErr: true,
 		},
 		{
-			name: "V6_1_noincrement",
+			name: "V6_1_nothingreserved",
 			mgr: &wgCtrlManager{
 				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
 				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
@@ -502,7 +504,7 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "V6_1_increment",
+			name: "V6_1_reserved",
 			mgr: &wgCtrlManager{
 				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
 				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
@@ -513,11 +515,11 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 				},
 			},
 			args: args{
-				id:         "wg0",
-				subnetCidr: "2001:db8::/64",
-				increment:  []bool{true},
+				id:          "wg0",
+				subnetCidr:  "2001:db8::/64",
+				reservedIps: []*netlink.Addr{ignoreNetlinkError(parseCIDR("2001:db8::1/64")), ignoreNetlinkError(parseCIDR("2001:db8::2/64"))},
 			},
-			want:    ignoreNetlinkError(parseCIDR("2001:db8::7/64")),
+			want:    ignoreNetlinkError(parseCIDR("2001:db8::3/64")),
 			wantErr: false,
 		},
 		{
@@ -533,7 +535,6 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 			args: args{
 				id:         "wg0",
 				subnetCidr: "2001:db8::/128",
-				increment:  []bool{true},
 			},
 			want:    nil,
 			wantErr: true,
@@ -541,7 +542,7 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.mgr.GetFreshIp(tt.args.id, tt.args.subnetCidr, tt.args.increment...)
+			got, err := tt.mgr.GetFreshIp(tt.args.id, tt.args.subnetCidr, tt.args.reservedIps...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetFreshIp() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -605,7 +606,7 @@ func Test_parseCIDR(t *testing.T) {
 	}
 }
 
-func Test_parseIpAddressString(t *testing.T) {
+func Test_wgCtrlManager_ParseIpAddressString(t *testing.T) {
 	type args struct {
 		addrStr string
 	}
@@ -706,7 +707,8 @@ func Test_parseIpAddressString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseIpAddressString(tt.args.addrStr)
+			m := &wgCtrlManager{}
+			got, err := m.ParseIpAddressString(tt.args.addrStr)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("parseIpAddressString() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -718,7 +720,7 @@ func Test_parseIpAddressString(t *testing.T) {
 	}
 }
 
-func Test_ipAddressesToString(t *testing.T) {
+func Test_wgCtrlManager_IpAddressesToString(t *testing.T) {
 	tests := []struct {
 		name      string
 		addresses []netlink.Addr
@@ -742,9 +744,84 @@ func Test_ipAddressesToString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ipAddressesToString(tt.addresses); got != tt.want {
+			m := &wgCtrlManager{}
+			if got := m.IpAddressesToString(tt.addresses); got != tt.want {
 				t.Errorf("ipAddressesToString() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func Test_wgCtrlManager_GetFreshIps(t *testing.T) {
+	type args struct {
+		id model.InterfaceIdentifier
+	}
+	tests := []struct {
+		name    string
+		mgr     *wgCtrlManager
+		args    args
+		want    string
+		wantErr assert.ErrorAssertionFunc
+	}{
+		{
+			name: "Single IPv4",
+			mgr: &wgCtrlManager{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {AddressStr: "10.0.0.1/24"}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
+					"wg0": {
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/24", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.3/24", true)}},
+					},
+				},
+			},
+			args: args{
+				id: "wg0",
+			},
+			want:    "10.0.0.4/24",
+			wantErr: assert.NoError,
+		},
+		{
+			name: "Multiple IPv4",
+			mgr: &wgCtrlManager{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {AddressStr: "10.0.0.1/24, 10.0.1.1/24"}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
+					"wg0": {
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/24,10.0.1.2/24", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.3/24,10.0.1.4/24", true)}},
+					},
+				},
+			},
+			args: args{
+				id: "wg0",
+			},
+			want:    "10.0.0.4/24,10.0.1.3/24",
+			wantErr: assert.NoError,
+		},
+		{
+			name: "Multiple Mixed",
+			mgr: &wgCtrlManager{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {AddressStr: "10.0.0.1/24, 2001:db8::3/64, 10.0.1.1/24,2001:f33d::1/126"}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
+					"wg0": {
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/24,10.0.1.2/24, 2001:db8::1/64,2001:f33d::5/126", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.3/24,10.0.1.4/24, 2001:db8::2/64,2001:f33d::6/126", true)}},
+					},
+				},
+			},
+			args: args{
+				id: "wg0",
+			},
+			want:    "10.0.0.4/24,10.0.1.3/24,2001:db8::4/64,2001:f33d::2/126",
+			wantErr: assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.mgr.GetFreshIps(tt.args.id)
+			if !tt.wantErr(t, err, fmt.Sprintf("GetFreshIps(%v)", tt.args.id)) {
+				return
+			}
+			assert.Equalf(t, tt.want, got, "GetFreshIps(%v)", tt.args.id)
 		})
 	}
 }

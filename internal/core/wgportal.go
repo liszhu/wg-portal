@@ -8,6 +8,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
@@ -157,51 +158,12 @@ func (w *wgPortal) GetUsers(ctx context.Context, options *userSearchOptions) ([]
 		options = UserSearchOptions()
 	}
 
-	var filteredAndPagedUsers []model.User
-	var users []*model.User
-	var err error
-
-	// find
-	switch options.filter {
-	case "":
-		users, err = w.users.GetAllUsers()
-	default:
-		filterStr := strings.ToLower(options.filter)
-		users, err = w.users.GetFilteredUsers(func(user *model.User) bool {
-			if strings.Contains(strings.ToLower(string(user.Identifier)), filterStr) {
-				return true
-			}
-			if strings.Contains(strings.ToLower(user.Firstname), filterStr) {
-				return true
-			}
-			if strings.Contains(strings.ToLower(user.Lastname), filterStr) {
-				return true
-			}
-			if strings.Contains(strings.ToLower(user.Email), filterStr) {
-				return true
-			}
-			return false
-		})
-	}
+	users, err := w.findAndSortUsers(options)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load users from manager: %w", err)
+		return nil, err
 	}
 
-	// sort
-	sort.Slice(users, func(i, j int) bool {
-		switch strings.ToLower(options.sortBy) {
-		case "firstname":
-			return users[i].Firstname < users[j].Firstname
-		case "lastname":
-			return users[i].Lastname < users[j].Lastname
-		case "email":
-			return users[i].Email < users[j].Email
-		case "source":
-			return users[i].Source < users[j].Source
-		default:
-			return users[i].Identifier < users[j].Identifier
-		}
-	})
+	var filteredAndPagedUsers []model.User
 
 	// page
 	if options.pageSize != PageSizeAll {
@@ -231,7 +193,37 @@ func (w *wgPortal) GetUserIds(ctx context.Context, options *userSearchOptions) (
 		options = UserSearchOptions()
 	}
 
+	users, err := w.findAndSortUsers(options)
+	if err != nil {
+		return nil, err
+	}
+
 	var filteredAndPagedIds []model.UserIdentifier
+
+	// page
+	if options.pageSize != PageSizeAll {
+		if options.pageOffset >= len(users) {
+			return nil, errors.New("invalid page offset")
+		}
+
+		filteredAndPagedIds = make([]model.UserIdentifier, 0, options.pageSize)
+		for i := options.pageOffset; i < options.pageOffset+options.pageSize; i++ {
+			if i >= len(users) {
+				break // check if we reached the end
+			}
+			filteredAndPagedIds = append(filteredAndPagedIds, users[i].Identifier)
+		}
+	} else {
+		filteredAndPagedIds = make([]model.UserIdentifier, len(users))
+		for i := range users {
+			filteredAndPagedIds[i] = users[i].Identifier
+		}
+	}
+
+	return filteredAndPagedIds, nil
+}
+
+func (w *wgPortal) findAndSortUsers(options *userSearchOptions) ([]*model.User, error) {
 	var users []*model.User
 	var err error
 
@@ -263,41 +255,27 @@ func (w *wgPortal) GetUserIds(ctx context.Context, options *userSearchOptions) (
 
 	// sort
 	sort.Slice(users, func(i, j int) bool {
+		sortRes := false
 		switch strings.ToLower(options.sortBy) {
 		case "firstname":
-			return users[i].Firstname < users[j].Firstname
+			sortRes = users[i].Firstname < users[j].Firstname
 		case "lastname":
-			return users[i].Lastname < users[j].Lastname
+			sortRes = users[i].Lastname < users[j].Lastname
 		case "email":
-			return users[i].Email < users[j].Email
+			sortRes = users[i].Email < users[j].Email
 		case "source":
-			return users[i].Source < users[j].Source
+			sortRes = users[i].Source < users[j].Source
 		default:
-			return users[i].Identifier < users[j].Identifier
+			sortRes = users[i].Identifier < users[j].Identifier
 		}
+
+		if options.sortDirection == SortDesc {
+			sortRes = !sortRes
+		}
+
+		return sortRes
 	})
-
-	// page
-	if options.pageSize != PageSizeAll {
-		if options.pageOffset >= len(users) {
-			return nil, errors.New("invalid page offset")
-		}
-
-		filteredAndPagedIds = make([]model.UserIdentifier, 0, options.pageSize)
-		for i := options.pageOffset; i < options.pageOffset+options.pageSize; i++ {
-			if i >= len(users) {
-				break // check if we reached the end
-			}
-			filteredAndPagedIds = append(filteredAndPagedIds, users[i].Identifier)
-		}
-	} else {
-		filteredAndPagedIds = make([]model.UserIdentifier, len(users))
-		for i := range users {
-			filteredAndPagedIds[i] = users[i].Identifier
-		}
-	}
-
-	return filteredAndPagedIds, nil
+	return users, nil
 }
 
 func (w *wgPortal) CreateUser(ctx context.Context, u *model.User, options *userCreateOptions) (*model.User, error) {
@@ -312,10 +290,88 @@ func (w *wgPortal) CreateUser(ctx context.Context, u *model.User, options *userC
 
 	// create a default peer for the given user
 	if options.createDefaultPeer {
-		// TODO: implement
+		if len(options.defaultPeerInterfaces) == 0 {
+			options.defaultPeerInterfaces = w.cfg.DefaultPeerInterfaces
+		}
+
+		for _, interfaceId := range options.defaultPeerInterfaces {
+			preparedPeer, err := w.preparePeer(ctx, interfaceId, u.Identifier)
+			if err != nil {
+				return nil, fmt.Errorf("failed to prepare default peer for %s: %w", interfaceId, err)
+			}
+
+			preparedPeer.DisplayName = fmt.Sprintf("Default Peer (%s)", preparedPeer.PublicKey[0:8])
+			preparedPeer.Temporary = nil
+
+			err = w.wg.SavePeers(preparedPeer)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create default peer for %s: %w", interfaceId, err)
+			}
+		}
 	}
 
 	return u, nil
+}
+
+func (w *wgPortal) preparePeer(ctx context.Context, interfaceId model.InterfaceIdentifier, userId model.UserIdentifier) (*model.Peer, error) {
+	i, err := w.wg.GetInterface(interfaceId)
+	if err != nil {
+		return nil, err
+	}
+
+	keyPair, err := w.wg.GetFreshKeypair()
+	if err != nil {
+		return nil, err
+	}
+
+	presharedKey, err := w.wg.GetPreSharedKey()
+	if err != nil {
+		return nil, err
+	}
+
+	// generate fresh IP's for all subnets that the interface has in use
+	addressStr, err := w.wg.GetFreshIps(interfaceId)
+	if err != nil {
+		return nil, err
+	}
+
+	peerInterface := &model.PeerInterfaceConfig{
+		Identifier:   interfaceId,
+		Type:         i.Type,
+		PublicKey:    i.PublicKey,
+		AddressStr:   model.StringConfigOption{Value: addressStr, Overridable: true},
+		DnsStr:       model.StringConfigOption{Value: i.PeerDefDnsStr, Overridable: true},
+		DnsSearchStr: model.StringConfigOption{Value: i.PeerDefDnsSearchStr, Overridable: true},
+		Mtu:          model.IntConfigOption{Value: i.PeerDefMtu, Overridable: true},
+		FirewallMark: model.Int32ConfigOption{Value: i.PeerDefFirewallMark, Overridable: true},
+		RoutingTable: model.StringConfigOption{Value: i.PeerDefRoutingTable, Overridable: true},
+		PreUp:        model.StringConfigOption{Value: i.PeerDefPreUp, Overridable: true},
+		PostUp:       model.StringConfigOption{Value: i.PeerDefPostUp, Overridable: true},
+		PreDown:      model.StringConfigOption{Value: i.PeerDefPreDown, Overridable: true},
+		PostDown:     model.StringConfigOption{Value: i.PeerDefPostDown, Overridable: true},
+	}
+
+	now := time.Now()
+	peer := &model.Peer{
+		Endpoint:            model.StringConfigOption{Value: i.PeerDefEndpoint, Overridable: true},
+		AllowedIPsStr:       model.StringConfigOption{Value: i.PeerDefAllowedIPsStr, Overridable: true},
+		ExtraAllowedIPsStr:  "",
+		KeyPair:             keyPair,
+		PresharedKey:        presharedKey,
+		PersistentKeepalive: model.IntConfigOption{Value: i.PeerDefPersistentKeepalive, Overridable: true},
+		DisplayName:         "Prepared Peer " + keyPair.PublicKey[0:8],
+		Identifier:          model.PeerIdentifier(keyPair.PublicKey),
+		UserIdentifier:      userId,
+		Temporary:           &now,
+		Interface:           peerInterface,
+	}
+
+	err = w.wg.SavePeers(peer)
+	if err != nil {
+		return nil, err
+	}
+
+	return peer, nil
 }
 
 func (w *wgPortal) UpdateUser(ctx context.Context, u *model.User, options *userUpdateOptions) (*model.User, error) {

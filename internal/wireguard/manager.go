@@ -38,7 +38,10 @@ type peerManager interface {
 type ipManager interface {
 	GetAllUsedIPs(device model.InterfaceIdentifier) ([]*netlink.Addr, error)
 	GetUsedIPs(device model.InterfaceIdentifier, subnetCidr string) ([]*netlink.Addr, error)
-	GetFreshIp(device model.InterfaceIdentifier, subnetCidr string, increment ...bool) (*netlink.Addr, error)
+	GetFreshIp(device model.InterfaceIdentifier, subnetCidr string, reservedIps ...*netlink.Addr) (*netlink.Addr, error)
+	GetFreshIps(device model.InterfaceIdentifier) (string, error)
+	ParseIpAddressString(addrStr string) ([]*netlink.Addr, error)
+	IpAddressesToString(addresses []netlink.Addr) string
 }
 
 type Manager interface {

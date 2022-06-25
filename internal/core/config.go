@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/h44z/wg-portal/internal/model"
+
 	"github.com/h44z/wg-portal/internal/authentication"
 	"github.com/h44z/wg-portal/internal/persistence"
 	"github.com/pkg/errors"
@@ -41,6 +43,8 @@ type Config struct {
 	} `yaml:"auth"`
 
 	Database persistence.DatabaseConfig `yaml:"database"`
+
+	DefaultPeerInterfaces []model.InterfaceIdentifier `yaml:"default_peer_interfaces"`
 }
 
 func LoadConfig() (*Config, error) {

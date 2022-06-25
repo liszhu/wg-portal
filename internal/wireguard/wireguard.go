@@ -67,7 +67,7 @@ func (m *wgCtrlManager) GetInterface(id model.InterfaceIdentifier) (*model.Inter
 	defer m.mux.RUnlock()
 
 	if !m.deviceExists(id) {
-		return nil, errors.New("device does not exist")
+		return nil, ErrInterfaceNotFound
 	}
 
 	return m.interfaces[id], nil
@@ -77,7 +77,7 @@ func (m *wgCtrlManager) CreateInterface(id model.InterfaceIdentifier) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	if m.deviceExists(id) {
-		return errors.New("device already exists")
+		return ErrInterfaceAlreadyExists
 	}
 
 	err := m.createLowLevelInterface(id)
@@ -102,7 +102,7 @@ func (m *wgCtrlManager) DeleteInterface(id model.InterfaceIdentifier) error {
 	defer m.mux.Unlock()
 
 	if !m.deviceExists(id) {
-		return errors.New("interface does not exist")
+		return ErrInterfaceNotFound
 	}
 
 	err := m.nl.LinkDel(&netlink.GenericLink{
@@ -142,7 +142,7 @@ func (m *wgCtrlManager) UpdateInterface(cfg *model.Interface) error {
 	defer m.mux.Unlock()
 
 	if !m.deviceExists(cfg.Identifier) {
-		return errors.New("interface does not exist")
+		return ErrInterfaceNotFound
 	}
 
 	// Update net-link attributes
@@ -155,7 +155,7 @@ func (m *wgCtrlManager) UpdateInterface(cfg *model.Interface) error {
 			return errors.WithMessage(err, "failed to set MTU")
 		}
 	}
-	addresses, err := parseIpAddressString(cfg.AddressStr)
+	addresses, err := m.ParseIpAddressString(cfg.AddressStr)
 	if err != nil {
 		return errors.WithMessage(err, "failed to parse ip address")
 	}
@@ -217,7 +217,7 @@ func (m *wgCtrlManager) ApplyDefaultConfigs(id model.InterfaceIdentifier) error 
 	defer m.mux.Unlock()
 
 	if !m.deviceExists(id) {
-		return errors.New("device does not exist")
+		return ErrInterfaceNotFound
 	}
 
 	cfg := m.interfaces[id]
@@ -253,7 +253,7 @@ func (m *wgCtrlManager) GetPeers(interfaceId model.InterfaceIdentifier) ([]*mode
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 	if !m.deviceExists(interfaceId) {
-		return nil, errors.New("device does not exist")
+		return nil, ErrInterfaceNotFound
 	}
 
 	peers := make([]*model.Peer, 0, len(m.peers[interfaceId]))
@@ -279,11 +279,17 @@ func (m *wgCtrlManager) SavePeers(peers ...*model.Peer) error {
 
 		deviceId := peer.Interface.Identifier
 		if !m.deviceExists(deviceId) {
-			return errors.Errorf("device does not exist")
+			return ErrInterfaceNotFound
 		}
 		deviceConfig := m.interfaces[deviceId]
 
-		wgPeer, err := getWireGuardPeerConfig(deviceConfig.Type, peer)
+		m.peers[deviceId][peer.Identifier] = peer
+
+		if peer.Temporary != nil {
+			continue // do not persist temporary peer to database or perform any WireGuard actions
+		}
+
+		wgPeer, err := m.getWireGuardPeerConfig(deviceConfig.Type, peer)
 		if err != nil {
 			return errors.WithMessagef(err, "could not generate WireGuard peer configuration for %s", peer.Identifier)
 		}
@@ -292,8 +298,6 @@ func (m *wgCtrlManager) SavePeers(peers ...*model.Peer) error {
 		if err != nil {
 			return errors.Wrapf(err, "could not save peer %s to WireGuard device %s", peer.Identifier, deviceId)
 		}
-
-		m.peers[deviceId][peer.Identifier] = peer
 
 		err = m.persistPeer(peer.Identifier, false)
 		if err != nil {
@@ -309,7 +313,7 @@ func (m *wgCtrlManager) RemovePeer(id model.PeerIdentifier) error {
 	defer m.mux.Unlock()
 
 	if !m.peerExists(id) {
-		return errors.Errorf("peer does not exist")
+		return ErrPeerNotFound
 	}
 
 	peer, _ := m.getPeer(id)
@@ -555,7 +559,7 @@ func (m *wgCtrlManager) convertWireGuardInterface(device *wgtypes.Device) (*mode
 	if err != nil {
 		return nil, errors.WithMessagef(err, "failed to get low level addresses for %s", device.Name)
 	}
-	cfg.Interface.AddressStr = ipAddressesToString(ipAddresses)
+	cfg.Interface.AddressStr = m.IpAddressesToString(ipAddresses)
 
 	return cfg, nil
 }
@@ -571,7 +575,7 @@ func (m *wgCtrlManager) convertWireGuardPeer(peer *wgtypes.Peer, dev *model.Impo
 		peerCfg.Endpoint = model.NewStringConfigOption(peer.Endpoint.String(), true)
 	}
 	if peer.PresharedKey != (wgtypes.Key{}) {
-		peerCfg.PresharedKey = peer.PresharedKey.String()
+		peerCfg.PresharedKey = model.PreSharedKey(peer.PresharedKey.String())
 	}
 	allowedIPs := make([]string, len(peer.AllowedIPs)) // use allowed IP's as the peer IP's
 	for i, ip := range peer.AllowedIPs {
@@ -623,14 +627,14 @@ func (m *wgCtrlManager) checkPeer(cfg *model.Peer) error {
 	return nil
 }
 
-func getWireGuardPeerConfig(devType model.InterfaceType, cfg *model.Peer) (wgtypes.PeerConfig, error) {
+func (m *wgCtrlManager) getWireGuardPeerConfig(devType model.InterfaceType, cfg *model.Peer) (wgtypes.PeerConfig, error) {
 	publicKey, err := wgtypes.ParseKey(cfg.KeyPair.PublicKey)
 	if err != nil {
 		return wgtypes.PeerConfig{}, errors.WithMessage(err, "invalid public key for peer")
 	}
 
 	var presharedKey *wgtypes.Key
-	if tmpPresharedKey, err := wgtypes.ParseKey(cfg.PresharedKey); err == nil {
+	if tmpPresharedKey, err := wgtypes.ParseKey(string(cfg.PresharedKey)); err == nil {
 		presharedKey = &tmpPresharedKey
 	}
 
@@ -652,16 +656,16 @@ func getWireGuardPeerConfig(devType model.InterfaceType, cfg *model.Peer) (wgtyp
 	var peerAllowedIPs []*netlink.Addr
 	switch devType {
 	case model.InterfaceTypeClient:
-		peerAllowedIPs, err = parseIpAddressString(cfg.AllowedIPsStr.GetValue())
+		peerAllowedIPs, err = m.ParseIpAddressString(cfg.AllowedIPsStr.GetValue())
 		if err != nil {
 			return wgtypes.PeerConfig{}, errors.WithMessage(err, "failed to parse allowed IP's")
 		}
 	case model.InterfaceTypeServer:
-		peerAllowedIPs, err = parseIpAddressString(cfg.AllowedIPsStr.GetValue())
+		peerAllowedIPs, err = m.ParseIpAddressString(cfg.AllowedIPsStr.GetValue())
 		if err != nil {
 			return wgtypes.PeerConfig{}, errors.WithMessage(err, "failed to parse allowed IP's")
 		}
-		peerExtraAllowedIPs, err := parseIpAddressString(cfg.ExtraAllowedIPsStr)
+		peerExtraAllowedIPs, err := m.ParseIpAddressString(cfg.ExtraAllowedIPsStr)
 		if err != nil {
 			return wgtypes.PeerConfig{}, errors.WithMessage(err, "failed to parse extra allowed IP's")
 		}

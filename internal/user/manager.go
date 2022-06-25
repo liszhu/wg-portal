@@ -134,12 +134,12 @@ func (p *persistentManager) CreateUser(user *model.User) error {
 		return ErrAlreadyExists
 	}
 
+	p.users[user.Identifier] = user
+
 	err := p.persistUser(user.Identifier, false)
 	if err != nil {
 		return fmt.Errorf("failed to persist created user: %w", err)
 	}
-
-	p.users[user.Identifier] = user
 
 	return nil
 }
@@ -156,12 +156,12 @@ func (p *persistentManager) UpdateUser(user *model.User) error {
 		return ErrNotFound
 	}
 
+	p.users[user.Identifier] = user
+
 	err := p.persistUser(user.Identifier, false)
 	if err != nil {
 		return fmt.Errorf("failed to persist updated user: %w", err)
 	}
-
-	p.users[user.Identifier] = user
 
 	return nil
 }

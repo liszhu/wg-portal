@@ -108,7 +108,8 @@ func UserUpdateOptions() *userUpdateOptions {
 }
 
 type userCreateOptions struct {
-	createDefaultPeer bool
+	createDefaultPeer     bool
+	defaultPeerInterfaces []model.InterfaceIdentifier
 }
 
 func UserCreateOptions() *userCreateOptions {

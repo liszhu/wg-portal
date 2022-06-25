@@ -1,5 +1,6 @@
 # Go parameters
 GOCMD=go
+MOCKERYCMD=mockery
 MODULENAME=github.com/h44z/wg-portal
 GOFILES:=$(shell go list ./... | grep -v /vendor/)
 BUILDDIR=dist
@@ -10,6 +11,13 @@ NPMCMD=npm
 .PHONY: all test clean phony
 
 all: dep build
+
+mocks: # depends on https://github.com/vektra/mockery
+	cd internal/user; $(MOCKERYCMD) --name Manager
+	cd internal/wireguard; $(MOCKERYCMD) --name Manager
+	cd internal/lowlevel; $(MOCKERYCMD) --all
+	cd internal/authentication; $(MOCKERYCMD) --name .*Authenticator
+
 
 build-frontend: dep frontend
 	CGO_ENABLED=0 GOOS=linux $(GOCMD) build -o $(BUILDDIR)/frontend -ldflags "-w -s -extldflags \"-static\"" cmd/wg-portal-spa/*.go
@@ -47,7 +55,7 @@ coverage: dep
 coverage-html: coverage
 	$(GOCMD) tool cover -html=.testCoverage.txt
 
-test: dep
+test: dep mocks
 	$(GOCMD) test $(MODULENAME)/... -v -count=1
 
 test-integration: dep

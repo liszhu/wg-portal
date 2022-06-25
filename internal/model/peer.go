@@ -31,7 +31,7 @@ type Peer struct {
 	AllowedIPsStr       StringConfigOption `gorm:"embedded;embeddedPrefix:allowed_ips_str_"` // all allowed ip subnets, comma seperated
 	ExtraAllowedIPsStr  string             // all allowed ip subnets on the server side, comma seperated
 	KeyPair                                // private/public Key of the peer
-	PresharedKey        string             // the pre-shared Key of the peer
+	PresharedKey        PreSharedKey       // the pre-shared Key of the peer
 	PersistentKeepalive IntConfigOption    `gorm:"embedded;embeddedPrefix:persistent_keep_alive_"` // the persistent keep-alive interval
 
 	// WG Portal specific
@@ -39,7 +39,7 @@ type Peer struct {
 	DisplayName    string         // a nice display name/ description for the peer
 	Identifier     PeerIdentifier `gorm:"primaryKey"` // peer unique identifier
 	UserIdentifier UserIdentifier `gorm:"index"`      // the owner
-	Temporary      bool           `gorm:"temporary"`  // is this a temporary peer (only prepared, but never saved)
+	Temporary      *time.Time     `gorm:"-"`          // is this a temporary peer (only prepared, but never saved to db)
 
 	// Interface settings for the peer, used to generate the [interface] section in the peer config file
 	Interface *PeerInterfaceConfig `gorm:"embedded"`
