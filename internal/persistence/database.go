@@ -16,10 +16,10 @@ import (
 type SupportedDatabase string
 
 const (
-	SupportedDatabaseMySQL    SupportedDatabase = "mysql"
-	SupportedDatabaseMsSQL    SupportedDatabase = "mssql"
-	SupportedDatabasePostgres SupportedDatabase = "postgres"
-	SupportedDatabaseSQLite   SupportedDatabase = "sqlite"
+	DatabaseMySQL    SupportedDatabase = "mysql"
+	DatabaseMsSQL    SupportedDatabase = "mssql"
+	DatabasePostgres SupportedDatabase = "postgres"
+	DatabaseSQLite   SupportedDatabase = "sqlite"
 )
 
 type DatabaseFilterCondition func(tx *gorm.DB) *gorm.DB
@@ -40,7 +40,7 @@ func NewDatabase(cfg DatabaseConfig) (*Database, error) {
 	var err error
 
 	switch cfg.Type {
-	case SupportedDatabaseMySQL:
+	case DatabaseMySQL:
 		gormDb, err = gorm.Open(mysql.Open(cfg.DSN), &gorm.Config{})
 		if err != nil {
 			return nil, errors.WithMessage(err, "failed to open MySQL database")
@@ -54,17 +54,17 @@ func NewDatabase(cfg DatabaseConfig) (*Database, error) {
 		if err != nil {
 			return nil, errors.WithMessage(err, "failed to ping MySQL database")
 		}
-	case SupportedDatabaseMsSQL:
+	case DatabaseMsSQL:
 		gormDb, err = gorm.Open(sqlserver.Open(cfg.DSN), &gorm.Config{})
 		if err != nil {
 			return nil, errors.WithMessage(err, "failed to open sqlserver database")
 		}
-	case SupportedDatabasePostgres:
+	case DatabasePostgres:
 		gormDb, err = gorm.Open(postgres.Open(cfg.DSN), &gorm.Config{})
 		if err != nil {
 			return nil, errors.WithMessage(err, "failed to open Postgres database")
 		}
-	case SupportedDatabaseSQLite:
+	case DatabaseSQLite:
 		if _, err = os.Stat(filepath.Dir(cfg.DSN)); os.IsNotExist(err) {
 			if err = os.MkdirAll(filepath.Dir(cfg.DSN), 0700); err != nil {
 				return nil, errors.WithMessage(err, "failed to create database base directory")

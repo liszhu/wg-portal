@@ -1,4 +1,4 @@
-package persistence
+package model
 
 type StringConfigOption struct {
 	Value       string `gorm:"column:v"`

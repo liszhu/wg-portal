@@ -1,18 +1,18 @@
 package wireguard
 
 import (
-	"github.com/h44z/wg-portal/internal/persistence"
+	"github.com/h44z/wg-portal/internal/model"
 )
 
 type store interface {
-	GetAvailableInterfaces() ([]persistence.InterfaceIdentifier, error)
+	GetAvailableInterfaces() ([]model.InterfaceIdentifier, error)
 
-	GetAllInterfaces(interfaceIdentifiers ...persistence.InterfaceIdentifier) (map[persistence.InterfaceConfig][]persistence.PeerConfig, error)
-	GetInterface(identifier persistence.InterfaceIdentifier) (persistence.InterfaceConfig, []persistence.PeerConfig, error)
+	GetAllInterfaces(interfaceIdentifiers ...model.InterfaceIdentifier) (map[model.Interface][]model.Peer, error)
+	GetInterface(identifier model.InterfaceIdentifier) (model.Interface, []model.Peer, error)
 
-	SaveInterface(cfg persistence.InterfaceConfig) error
-	SavePeer(peer persistence.PeerConfig) error
+	SaveInterface(cfg *model.Interface) error
+	SavePeer(peer *model.Peer) error
 
-	DeleteInterface(identifier persistence.InterfaceIdentifier) error
-	DeletePeer(peer persistence.PeerIdentifier) error
+	DeleteInterface(identifier model.InterfaceIdentifier) error
+	DeletePeer(peer model.PeerIdentifier) error
 }

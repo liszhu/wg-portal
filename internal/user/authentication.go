@@ -3,18 +3,18 @@ package user
 import (
 	"crypto/subtle"
 
-	"github.com/h44z/wg-portal/internal/persistence"
+	"github.com/h44z/wg-portal/internal/model"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (p *PersistentManager) PlaintextAuthentication(userId persistence.UserIdentifier, plainPassword string) error {
+func (p *persistentManager) PlaintextAuthentication(userId model.UserIdentifier, plainPassword string) error {
 	user, err := p.GetUser(userId)
 	if err != nil {
 		return errors.WithMessagef(err, "unable to load user %s", userId)
 	}
 
-	if user.Source == persistence.UserSourceOauth {
+	if user.Source == model.UserSourceOauth {
 		return errors.New("password authentication unavailable")
 	}
 
@@ -29,13 +29,13 @@ func (p *PersistentManager) PlaintextAuthentication(userId persistence.UserIdent
 	return nil
 }
 
-func (p *PersistentManager) HashedAuthentication(userId persistence.UserIdentifier, hashedPassword string) error {
+func (p *persistentManager) HashedAuthentication(userId model.UserIdentifier, hashedPassword string) error {
 	user, err := p.GetUser(userId)
 	if err != nil {
 		return errors.WithMessagef(err, "unable to load user %s", userId)
 	}
 
-	if user.Source == persistence.UserSourceOauth {
+	if user.Source == model.UserSourceOauth {
 		return errors.New("password authentication unavailable")
 	}
 
@@ -50,7 +50,7 @@ func (p *PersistentManager) HashedAuthentication(userId persistence.UserIdentifi
 	return nil
 }
 
-func (p *PersistentManager) HashPassword(plain string) (string, error) {
+func (p *persistentManager) HashPassword(plain string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
 	if err != nil {
 		return "", errors.WithMessage(err, "failed to hash password")

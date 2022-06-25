@@ -3,78 +3,64 @@ package wireguard
 import (
 	"io"
 
-	"github.com/vishvananda/netlink"
-
-	"github.com/pkg/errors"
-
 	"github.com/h44z/wg-portal/internal/lowlevel"
-
-	"github.com/h44z/wg-portal/internal/persistence"
+	"github.com/h44z/wg-portal/internal/model"
+	"github.com/pkg/errors"
+	"github.com/vishvananda/netlink"
 )
 
-type KeyGenerator interface {
-	GetFreshKeypair() (persistence.KeyPair, error)
-	GetPreSharedKey() (persistence.PreSharedKey, error)
+// interfaceManager provides methods to create/update/delete physical WireGuard devices.
+type interfaceManager interface {
+	GetInterfaces() ([]*model.Interface, error)
+	GetInterface(id model.InterfaceIdentifier) (*model.Interface, error)
+	CreateInterface(id model.InterfaceIdentifier) error
+	DeleteInterface(id model.InterfaceIdentifier) error
+	UpdateInterface(cfg *model.Interface) error
+	ApplyDefaultConfigs(id model.InterfaceIdentifier) error
 }
 
-// InterfaceManager provides methods to create/update/delete physical WireGuard devices.
-type InterfaceManager interface {
-	GetInterfaces() ([]*persistence.InterfaceConfig, error)
-	GetInterface(id persistence.InterfaceIdentifier) (*persistence.InterfaceConfig, error)
-	CreateInterface(id persistence.InterfaceIdentifier) error
-	DeleteInterface(id persistence.InterfaceIdentifier) error
-	UpdateInterface(cfg *persistence.InterfaceConfig) error
-	ApplyDefaultConfigs(id persistence.InterfaceIdentifier) error
+type importManager interface {
+	GetImportableInterfaces() ([]*model.ImportableInterface, error)
+	ImportInterface(cfg *model.ImportableInterface) error
 }
 
-type ImportableInterface struct {
-	persistence.InterfaceConfig
-	ImportLocation string
-	ImportType     string
+type configFileGenerator interface {
+	GetInterfaceConfig(cfg *model.Interface, peers []*model.Peer) (io.Reader, error)
+	GetPeerConfig(peer *model.Peer) (io.Reader, error)
 }
 
-type ImportManager interface {
-	GetImportableInterfaces() (map[*ImportableInterface][]*persistence.PeerConfig, error)
-	ImportInterface(cfg *ImportableInterface, peers []*persistence.PeerConfig) error
+type peerManager interface {
+	GetPeers(device model.InterfaceIdentifier) ([]*model.Peer, error)
+	SavePeers(peers ...*model.Peer) error
+	RemovePeer(peer model.PeerIdentifier) error
 }
 
-type ConfigFileGenerator interface {
-	GetInterfaceConfig(cfg *persistence.InterfaceConfig, peers []*persistence.PeerConfig) (io.Reader, error)
-	GetPeerConfig(peer *persistence.PeerConfig) (io.Reader, error)
-}
-
-type PeerManager interface {
-	GetPeers(device persistence.InterfaceIdentifier) ([]*persistence.PeerConfig, error)
-	SavePeers(peers ...*persistence.PeerConfig) error
-	RemovePeer(peer persistence.PeerIdentifier) error
-}
-
-type IpManager interface {
-	GetAllUsedIPs(device persistence.InterfaceIdentifier) ([]*netlink.Addr, error)
-	GetUsedIPs(device persistence.InterfaceIdentifier, subnetCidr string) ([]*netlink.Addr, error)
-	GetFreshIp(device persistence.InterfaceIdentifier, subnetCidr string, increment ...bool) (*netlink.Addr, error)
+type ipManager interface {
+	GetAllUsedIPs(device model.InterfaceIdentifier) ([]*netlink.Addr, error)
+	GetUsedIPs(device model.InterfaceIdentifier, subnetCidr string) ([]*netlink.Addr, error)
+	GetFreshIp(device model.InterfaceIdentifier, subnetCidr string, increment ...bool) (*netlink.Addr, error)
 }
 
 type Manager interface {
-	KeyGenerator
-	InterfaceManager
-	PeerManager
-	IpManager
-	ImportManager
-	ConfigFileGenerator
+	keyGenerator
+	interfaceManager
+	peerManager
+	ipManager
+	importManager
+	configFileGenerator
 }
 
 //
 // -- Implementations
 //
 
-type PersistentManager struct {
+type persistentManager struct {
 	*wgCtrlKeyGenerator
 	*templateHandler
 	*wgCtrlManager
 }
 
-func NewPersistentManager(wg lowlevel.WireGuardClient, nl lowlevel.NetlinkClient, store store) (*PersistentManager, error) {
+func NewPersistentManager(wg lowlevel.WireGuardClient, nl lowlevel.NetlinkClient, store store) (*persistentManager, error) {
 	wgManager, err := newWgCtrlManager(wg, nl, store)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to initialize WireGuard manager")
@@ -85,7 +71,7 @@ func NewPersistentManager(wg lowlevel.WireGuardClient, nl lowlevel.NetlinkClient
 		return nil, errors.WithMessage(err, "failed to initialize template manager")
 	}
 
-	m := &PersistentManager{
+	m := &persistentManager{
 		wgCtrlKeyGenerator: &wgCtrlKeyGenerator{},
 		wgCtrlManager:      wgManager,
 		templateHandler:    tplManager,

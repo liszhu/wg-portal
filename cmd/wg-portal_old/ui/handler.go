@@ -25,7 +25,7 @@ type handler struct {
 
 	session             SessionStore
 	backend             core.Backend
-	oauthAuthenticators map[string]authentication.Authenticator
+	oauthAuthenticators map[string]authentication.OauthAuthenticator
 	ldapAuthenticators  map[string]authentication.LdapAuthenticator
 }
 
@@ -34,7 +34,7 @@ func NewHandler(config *common.Config, backend core.Backend) (*handler, error) {
 		config:              config,
 		backend:             backend,
 		session:             GinSessionStore{sessionIdentifier: "wgPortalSession"},
-		oauthAuthenticators: make(map[string]authentication.Authenticator),
+		oauthAuthenticators: make(map[string]authentication.OauthAuthenticator),
 		ldapAuthenticators:  make(map[string]authentication.LdapAuthenticator),
 	}
 

@@ -2,72 +2,52 @@ package main
 
 import (
 	"context"
-	"os"
-	"os/signal"
 	"syscall"
 
-	"github.com/h44z/wg-portal/internal/persistence"
+	"github.com/h44z/wg-portal/internal/core"
 
-	"github.com/h44z/wg-portal/cmd/wg-portal/common"
-
+	"github.com/h44z/wg-portal/internal"
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	ctx := internal.SignalAwareContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 
-	logrus.Info("starting WireGuard Portal...")
+	logrus.Infof("Starting WireGuard Portal server, version %s...", internal.Version)
 
-	// Context for clean shutdown
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	cfg, err := core.LoadConfig()
+	internal.AssertNoError(err)
 
-	// Attach signal handlers to context
-	go func() {
-		osCall := <-c
-		logrus.Tracef("received system call: %v", osCall)
-		cancel() // cancel the context
-	}()
+	portal, err := core.NewWgPortal(cfg)
+	internal.AssertNoError(err)
 
-	go entrypoint(ctx, cancel) // main entry point
+	logrus.Info("Started WireGuard Portal server")
 
-	<-ctx.Done() // Wait until the context gets canceled
+	go portal.RunBackgroundTasks(ctx)
 
-	logrus.Info("stopped WireGuard Portal")
-	logrus.Exit(0)
-}
-
-func entrypoint(ctx context.Context, cancel context.CancelFunc) {
-	defer cancel() // quit program if main entrypoint ends
-
-	// default config, TODO: implement
-	cfg := &common.Config{
-		Database: persistence.DatabaseConfig{
-			Type: "sqlite",
-			DSN:  "sqlite.db",
-		},
-	}
-	cfg.Core.ListeningAddress = ":8080"
-	cfg.Core.ExternalUrl = "http://localhost:8080"
-	cfg.Core.GinDebug = true
-	cfg.Core.LogLevel = "trace"
-	cfg.Core.CompanyName = "Test Company"
-	cfg.Core.LogoUrl = "/img/header-logo.png"
-
-	err := common.LoadConfigFile(&cfg, "config.yml")
-	if err != nil {
-		logrus.Errorf("failed to load config file: %v", err)
-		return
+	/*fmt.Println("All Users:")
+	users, err := portal.GetUsers(ctx, nil)
+	internal.AssertNoError(err)
+	for i, user := range users {
+		fmt.Println(i, user)
 	}
 
-	srv, err := NewServer(cfg)
-	if err != nil {
-		logrus.Errorf("failed to setup server: %v", err)
-		return
+	fmt.Println("Paged Users 1:")
+	usersPaged, err := portal.GetUsers(ctx, core.UserSearchOptions().WithPageSize(2))
+	internal.AssertNoError(err)
+	for i, user := range usersPaged {
+		fmt.Println(i, user)
 	}
-	defer srv.Shutdown()
 
-	// Run is blocking
-	srv.Run(ctx)
+	fmt.Println("Paged Users 2:")
+	usersPaged2, err := portal.GetUsers(ctx, core.UserSearchOptions().WithPageSize(2).WithPageOffset(2))
+	internal.AssertNoError(err)
+	for i, user := range usersPaged2 {
+		fmt.Println(i, user)
+	}*/
+
+	// wait until context gets cancelled
+	<-ctx.Done()
+
+	logrus.Info("Stopped WireGuard Portal server")
 }

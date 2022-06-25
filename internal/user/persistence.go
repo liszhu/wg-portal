@@ -1,11 +1,9 @@
 package user
 
-import (
-	"github.com/h44z/wg-portal/internal/persistence"
-)
+import "github.com/h44z/wg-portal/internal/model"
 
 type store interface {
-	GetUsersUnscoped() ([]persistence.User, error)
-	SaveUser(user persistence.User) error
-	DeleteUser(identifier persistence.UserIdentifier) error
+	GetUsersUnscoped() ([]model.User, error)
+	SaveUser(user *model.User) error
+	DeleteUser(identifier model.UserIdentifier) error
 }

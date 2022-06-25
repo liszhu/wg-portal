@@ -111,7 +111,7 @@ func (h *handler) handleAdminIndexGet() gin.HandlerFunc {
 		}
 
 		// TODO test peers
-		/*iface = &persistence.InterfaceConfig{
+		/*iface = &persistence.Interface{
 			BaseModel:                  persistence.BaseModel{},
 			Identifier:                 "wg0",
 			KeyPair:                    persistence.KeyPair{},

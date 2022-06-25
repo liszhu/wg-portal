@@ -1,204 +1,181 @@
 package user
 
 import (
-	"sort"
+	"errors"
+	"fmt"
 	"sync"
 
-	"github.com/h44z/wg-portal/internal/persistence"
-	"github.com/pkg/errors"
+	"github.com/h44z/wg-portal/internal/authentication"
+	"github.com/h44z/wg-portal/internal/model"
 )
 
-type Loader interface {
-	GetActiveUser(id persistence.UserIdentifier) (*persistence.User, error)
-	GetUser(id persistence.UserIdentifier) (*persistence.User, error)
-	GetActiveUsers() ([]*persistence.User, error)
-	GetAllUsers() ([]*persistence.User, error)
-	GetFilteredUsers(filter Filter) ([]*persistence.User, error)
+type loader interface {
+	GetActiveUser(id model.UserIdentifier) (*model.User, error)
+	GetUser(id model.UserIdentifier) (*model.User, error)
+	GetActiveUsers() ([]*model.User, error)
+	GetAllUsers() ([]*model.User, error)
+	GetFilteredUsers(filter Filter) ([]*model.User, error)
 }
 
-type Updater interface {
-	CreateUser(user *persistence.User) error
-	UpdateUser(user *persistence.User) error
-	DeleteUser(identifier persistence.UserIdentifier) error
-}
-
-type Authenticator interface {
-	PlaintextAuthentication(userId persistence.UserIdentifier, plainPassword string) error
-	HashedAuthentication(userId persistence.UserIdentifier, hashedPassword string) error
-}
-
-type PasswordHasher interface {
-	HashPassword(plain string) (string, error)
+type updater interface {
+	CreateUser(user *model.User) error
+	UpdateUser(user *model.User) error
+	DeleteUser(identifier model.UserIdentifier) error
 }
 
 // Filter can be used to filter users. If this function returns true, the given user is included in the result.
-type Filter func(user *persistence.User) bool
+type Filter func(user *model.User) bool
 
 type Manager interface {
-	Loader
-	Updater
-	Authenticator
-	PasswordHasher
+	loader
+	updater
+	authentication.PlainAuthenticator
+	authentication.PasswordHasher
 }
 
-type PersistentManager struct {
+type persistentManager struct {
 	mux sync.RWMutex // mutex to synchronize access to maps and external api clients
 
 	store store
 
 	// internal holder of user objects
-	users map[persistence.UserIdentifier]*persistence.User
+	users map[model.UserIdentifier]*model.User
 }
 
-func NewPersistentManager(store store) (*PersistentManager, error) {
-	mgr := &PersistentManager{
+func NewPersistentManager(store store) (*persistentManager, error) {
+	mgr := &persistentManager{
 		store: store,
 
-		users: make(map[persistence.UserIdentifier]*persistence.User),
+		users: make(map[model.UserIdentifier]*model.User),
 	}
 
 	if err := mgr.initializeFromStore(); err != nil {
-		return nil, errors.WithMessage(err, "failed to initialize manager from store")
+		return nil, fmt.Errorf("failed to initialize manager from store: %w", err)
 	}
 
 	return mgr, nil
 }
 
-func (p *PersistentManager) GetUser(id persistence.UserIdentifier) (*persistence.User, error) {
+func (p *persistentManager) GetUser(id model.UserIdentifier) (*model.User, error) {
 	p.mux.RLock()
 	defer p.mux.RUnlock()
 
 	if !p.userExists(id) {
-		return nil, errors.New("no such user exists")
+		return nil, ErrNotFound
 	}
 
 	return p.users[id], nil
 }
 
-func (p *PersistentManager) GetActiveUser(id persistence.UserIdentifier) (*persistence.User, error) {
+func (p *persistentManager) GetActiveUser(id model.UserIdentifier) (*model.User, error) {
 	p.mux.RLock()
 	defer p.mux.RUnlock()
 
 	if !p.userExists(id) {
-		return nil, errors.New("no such user exists")
+		return nil, ErrNotFound
 	}
 
 	if !p.userIsEnabled(id) {
-		return nil, errors.New("user is disabled")
+		return nil, ErrDisabled
 	}
 
 	return p.users[id], nil
 }
 
-func (p *PersistentManager) GetActiveUsers() ([]*persistence.User, error) {
+func (p *persistentManager) GetActiveUsers() ([]*model.User, error) {
 	p.mux.RLock()
 	defer p.mux.RUnlock()
 
-	users := make([]*persistence.User, 0, len(p.users))
+	users := make([]*model.User, 0, len(p.users))
 	for _, user := range p.users {
 		if !user.DeletedAt.Valid {
 			users = append(users, user)
 		}
 	}
 
-	// Order the users by uid
-	sort.Slice(users, func(i, j int) bool {
-		return users[i].Identifier < users[j].Identifier
-	})
-
 	return users, nil
 }
 
-func (p *PersistentManager) GetAllUsers() ([]*persistence.User, error) {
+func (p *persistentManager) GetAllUsers() ([]*model.User, error) {
 	p.mux.RLock()
 	defer p.mux.RUnlock()
 
-	users := make([]*persistence.User, 0, len(p.users))
+	users := make([]*model.User, 0, len(p.users))
 	for _, user := range p.users {
 		users = append(users, user)
 	}
 
-	// Order the users by uid
-	sort.Slice(users, func(i, j int) bool {
-		return users[i].Identifier < users[j].Identifier
-	})
-
 	return users, nil
 }
 
-func (p *PersistentManager) GetFilteredUsers(filter Filter) ([]*persistence.User, error) {
+func (p *persistentManager) GetFilteredUsers(filter Filter) ([]*model.User, error) {
 	p.mux.RLock()
 	defer p.mux.RUnlock()
 
-	users := make([]*persistence.User, 0, len(p.users))
+	users := make([]*model.User, 0, len(p.users))
 	for _, user := range p.users {
 		if filter == nil || filter(user) {
 			users = append(users, user)
 		}
 	}
 
-	// Order the users by uid
-	sort.Slice(users, func(i, j int) bool {
-		return users[i].Identifier < users[j].Identifier
-	})
-
 	return users, nil
 }
 
-func (p *PersistentManager) CreateUser(user *persistence.User) error {
+func (p *persistentManager) CreateUser(user *model.User) error {
 	if err := p.checkUser(user); err != nil {
-		return errors.WithMessage(err, "user validation failed")
+		return fmt.Errorf("user validation failed: %w", err)
 	}
 
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
 	if p.userExists(user.Identifier) {
-		return errors.New("user already exists")
+		return ErrAlreadyExists
+	}
+
+	err := p.persistUser(user.Identifier, false)
+	if err != nil {
+		return fmt.Errorf("failed to persist created user: %w", err)
 	}
 
 	p.users[user.Identifier] = user
 
-	err := p.persistUser(user.Identifier, false)
-	if err != nil {
-		return errors.WithMessage(err, "failed to persist created user")
-	}
-
 	return nil
 }
 
-func (p *PersistentManager) UpdateUser(user *persistence.User) error {
+func (p *persistentManager) UpdateUser(user *model.User) error {
 	if err := p.checkUser(user); err != nil {
-		return errors.WithMessage(err, "user validation failed")
+		return fmt.Errorf("user validation failed: %w", err)
 	}
 
 	p.mux.Lock()
 	defer p.mux.Unlock()
 
 	if !p.userExists(user.Identifier) {
-		return errors.New("user does not exists")
+		return ErrNotFound
+	}
+
+	err := p.persistUser(user.Identifier, false)
+	if err != nil {
+		return fmt.Errorf("failed to persist updated user: %w", err)
 	}
 
 	p.users[user.Identifier] = user
 
-	err := p.persistUser(user.Identifier, false)
-	if err != nil {
-		return errors.WithMessage(err, "failed to persist updated user")
-	}
-
 	return nil
 }
 
-func (p *PersistentManager) DeleteUser(id persistence.UserIdentifier) error {
+func (p *persistentManager) DeleteUser(id model.UserIdentifier) error {
 	p.mux.Lock()
 	defer p.mux.Unlock()
 	if !p.userExists(id) {
-		return errors.New("user does not exists")
+		return ErrNotFound
 	}
 
 	err := p.persistUser(id, true)
 	if err != nil {
-		return errors.WithMessage(err, "failed to persist deleted user")
+		return fmt.Errorf("failed to persist deleted user: %w", err)
 	}
 
 	delete(p.users, id)
@@ -210,14 +187,14 @@ func (p *PersistentManager) DeleteUser(id persistence.UserIdentifier) error {
 // -- Helpers
 //
 
-func (p *PersistentManager) initializeFromStore() error {
+func (p *persistentManager) initializeFromStore() error {
 	if p.store == nil {
 		return nil // no store, nothing to do
 	}
 
 	users, err := p.store.GetUsersUnscoped()
 	if err != nil {
-		return errors.WithMessage(err, "failed to get all users")
+		return fmt.Errorf("failed to get all users: %w", err)
 	}
 
 	for _, tmpUser := range users {
@@ -228,21 +205,21 @@ func (p *PersistentManager) initializeFromStore() error {
 	return nil
 }
 
-func (p *PersistentManager) userExists(id persistence.UserIdentifier) bool {
+func (p *persistentManager) userExists(id model.UserIdentifier) bool {
 	if _, ok := p.users[id]; ok {
 		return true
 	}
 	return false
 }
 
-func (p *PersistentManager) userIsEnabled(id persistence.UserIdentifier) bool {
+func (p *persistentManager) userIsEnabled(id model.UserIdentifier) bool {
 	if user, ok := p.users[id]; ok && !user.DeletedAt.Valid {
 		return true
 	}
 	return false
 }
 
-func (p *PersistentManager) persistUser(id persistence.UserIdentifier, delete bool) error {
+func (p *persistentManager) persistUser(id model.UserIdentifier, delete bool) error {
 	if p.store == nil {
 		return nil // nothing to do
 	}
@@ -251,16 +228,16 @@ func (p *PersistentManager) persistUser(id persistence.UserIdentifier, delete bo
 	if delete {
 		err = p.store.DeleteUser(id)
 	} else {
-		err = p.store.SaveUser(*p.users[id])
+		err = p.store.SaveUser(p.users[id])
 	}
 	if err != nil {
-		return errors.Wrapf(err, "failed to persist user")
+		return fmt.Errorf("failed to persist user: %w", err)
 	}
 
 	return nil
 }
 
-func (p *PersistentManager) checkUser(user *persistence.User) error {
+func (p *persistentManager) checkUser(user *model.User) error {
 	if user == nil {
 		return errors.New("user must not be nil")
 	}

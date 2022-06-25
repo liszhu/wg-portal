@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/h44z/wg-portal/internal/persistence"
+	"github.com/h44z/wg-portal/internal/model"
 	"github.com/vishvananda/netlink"
 )
 
@@ -159,7 +159,7 @@ func Test_isV4(t *testing.T) {
 
 func Test_wgCtrlManager_GetAllUsedIPs(t *testing.T) {
 	type args struct {
-		id persistence.InterfaceIdentifier
+		id model.InterfaceIdentifier
 	}
 	tests := []struct {
 		name    string
@@ -170,7 +170,7 @@ func Test_wgCtrlManager_GetAllUsedIPs(t *testing.T) {
 	}{
 		{
 			name:    "No Such Interface",
-			mgr:     &wgCtrlManager{peers: make(map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig)},
+			mgr:     &wgCtrlManager{peers: make(map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer)},
 			args:    args{id: "wg0"},
 			want:    nil,
 			wantErr: true,
@@ -178,8 +178,8 @@ func Test_wgCtrlManager_GetAllUsedIPs(t *testing.T) {
 		{
 			name: "No Peers",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers:      map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{"wg0": nil}},
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers:      map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{"wg0": nil}},
 			args:    args{id: "wg0"},
 			want:    nil,
 			wantErr: false,
@@ -187,10 +187,10 @@ func Test_wgCtrlManager_GetAllUsedIPs(t *testing.T) {
 		{
 			name: "Wrong IP addresses",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("invalid", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("invalid", true)}},
 					},
 				},
 			},
@@ -201,11 +201,11 @@ func Test_wgCtrlManager_GetAllUsedIPs(t *testing.T) {
 		{
 			name: "Single IP addresses",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.2/24", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.3/24", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/24", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.3/24", true)}},
 					},
 				},
 			},
@@ -219,11 +219,11 @@ func Test_wgCtrlManager_GetAllUsedIPs(t *testing.T) {
 		{
 			name: "Multiple IP addresses",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.2/24,684D:1111:222:3333:4444:5555:6:77/64", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("1.1.1.1/30,10.0.0.3/24,8.8.8.8/32", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/24,684D:1111:222:3333:4444:5555:6:77/64", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("1.1.1.1/30,10.0.0.3/24,8.8.8.8/32", true)}},
 					},
 				},
 			},
@@ -254,7 +254,7 @@ func Test_wgCtrlManager_GetAllUsedIPs(t *testing.T) {
 
 func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 	type args struct {
-		id         persistence.InterfaceIdentifier
+		id         model.InterfaceIdentifier
 		subnetCidr string
 	}
 	tests := []struct {
@@ -266,7 +266,7 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 	}{
 		{
 			name:    "No Such Interface",
-			mgr:     &wgCtrlManager{peers: make(map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig)},
+			mgr:     &wgCtrlManager{peers: make(map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer)},
 			args:    args{id: "wg0", subnetCidr: "10.0.0.0/24"},
 			want:    nil,
 			wantErr: true,
@@ -274,8 +274,8 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 		{
 			name: "No Peers",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers:      map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{"wg0": nil}},
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers:      map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{"wg0": nil}},
 			args:    args{id: "wg0", subnetCidr: "10.0.0.0/24"},
 			want:    nil,
 			wantErr: false,
@@ -283,8 +283,8 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 		{
 			name: "Wrong subnet",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers:      map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{"wg0": nil}},
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers:      map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{"wg0": nil}},
 			args:    args{id: "wg0", subnetCidr: "subnet"},
 			want:    nil,
 			wantErr: true,
@@ -292,10 +292,10 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 		{
 			name: "Wrong IP addresses",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("invalid", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("invalid", true)}},
 					},
 				},
 			},
@@ -306,11 +306,11 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 		{
 			name: "Single IP addresses V4",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.2/24", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.3/24", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/24", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.3/24", true)}},
 					},
 				},
 			},
@@ -324,11 +324,11 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 		{
 			name: "Single IP addresses V6",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("2001:db8::5/64", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("2001:db8::6/64", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("2001:db8::5/64", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("2001:db8::6/64", true)}},
 					},
 				},
 			},
@@ -342,11 +342,11 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 		{
 			name: "Multiple IP addresses V4",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.2/24,684D:1111:222:3333:4444:5555:6:77/64", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("1.1.1.1/30,10.0.0.3/24,8.8.8.8/32", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/24,684D:1111:222:3333:4444:5555:6:77/64", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("1.1.1.1/30,10.0.0.3/24,8.8.8.8/32", true)}},
 					},
 				},
 			},
@@ -360,12 +360,12 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 		{
 			name: "Multiple IP addresses V6",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.2/24,2001:db8::5/64", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("2001:db8::6/64", true)}},
-						"peer2": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("2001:db9::6/64,2001:db8:0:0:100::6/64", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/24,2001:db8::5/64", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("2001:db8::6/64", true)}},
+						"peer2": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("2001:db9::6/64,2001:db8:0:0:100::6/64", true)}},
 					},
 				},
 			},
@@ -380,11 +380,11 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 		{
 			name: "Sort Order",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.3/16,10.0.0.2/16,10.0.5.2/16", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.1/16,10.0.4.2/16,10.0.6.2/16,10.0.5.3/16", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.3/16,10.0.0.2/16,10.0.5.2/16", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.1/16,10.0.4.2/16,10.0.6.2/16,10.0.5.3/16", true)}},
 					},
 				},
 			},
@@ -417,7 +417,7 @@ func Test_wgCtrlManager_GetUsedIPs(t *testing.T) {
 
 func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 	type args struct {
-		id         persistence.InterfaceIdentifier
+		id         model.InterfaceIdentifier
 		subnetCidr string
 		increment  []bool
 	}
@@ -431,11 +431,11 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 		{
 			name: "V4_1_noincrement",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.2/24", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.3/24", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/24", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.3/24", true)}},
 					},
 				},
 			},
@@ -449,11 +449,11 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 		{
 			name: "V4_1_increment",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.2/24", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.3/24", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/24", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.3/24", true)}},
 					},
 				},
 			},
@@ -468,10 +468,10 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 		{
 			name: "V4_1_overflow",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("10.0.0.2/32", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("10.0.0.2/32", true)}},
 					},
 				},
 			},
@@ -486,11 +486,11 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 		{
 			name: "V6_1_noincrement",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("2001:db8::5/64", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("2001:db8::6/64", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("2001:db8::5/64", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("2001:db8::6/64", true)}},
 					},
 				},
 			},
@@ -504,11 +504,11 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 		{
 			name: "V6_1_increment",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("2001:db8::5/64", true)}},
-						"peer1": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("2001:db8::6/64", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("2001:db8::5/64", true)}},
+						"peer1": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("2001:db8::6/64", true)}},
 					},
 				},
 			},
@@ -523,10 +523,10 @@ func Test_wgCtrlManager_GetFreshIp(t *testing.T) {
 		{
 			name: "V6_1_overflow",
 			mgr: &wgCtrlManager{
-				interfaces: map[persistence.InterfaceIdentifier]*persistence.InterfaceConfig{"wg0": {}},
-				peers: map[persistence.InterfaceIdentifier]map[persistence.PeerIdentifier]*persistence.PeerConfig{
+				interfaces: map[model.InterfaceIdentifier]*model.Interface{"wg0": {}},
+				peers: map[model.InterfaceIdentifier]map[model.PeerIdentifier]*model.Peer{
 					"wg0": {
-						"peer0": {Interface: &persistence.PeerInterfaceConfig{AddressStr: persistence.NewStringConfigOption("2001:db8::ffff/128", true)}},
+						"peer0": {Interface: &model.PeerInterfaceConfig{AddressStr: model.NewStringConfigOption("2001:db8::ffff/128", true)}},
 					},
 				},
 			},

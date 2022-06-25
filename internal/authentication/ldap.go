@@ -5,18 +5,15 @@ import (
 	"crypto/tls"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"github.com/go-ldap/ldap/v3"
-
-	"github.com/h44z/wg-portal/internal/persistence"
-	"github.com/h44z/wg-portal/internal/user"
+	"github.com/h44z/wg-portal/internal/model"
+	"github.com/pkg/errors"
 )
 
 type LdapAuthenticator interface {
-	user.Authenticator
+	PlainAuthenticator
 	GetAllUserInfos(ctx context.Context) ([]map[string]interface{}, error)
-	GetUserInfo(ctx context.Context, username persistence.UserIdentifier) (map[string]interface{}, error)
+	GetUserInfo(ctx context.Context, username model.UserIdentifier) (map[string]interface{}, error)
 	ParseUserInfo(raw map[string]interface{}) (*AuthenticatorUserInfo, error)
 	RegistrationEnabled() bool
 	SynchronizationEnabled() bool
@@ -49,7 +46,7 @@ func (l *ldapAuthenticator) SynchronizationEnabled() bool {
 	return l.cfg.Synchronize
 }
 
-func (l *ldapAuthenticator) PlaintextAuthentication(userId persistence.UserIdentifier, plainPassword string) error {
+func (l *ldapAuthenticator) PlaintextAuthentication(userId model.UserIdentifier, plainPassword string) error {
 	conn, err := l.connect()
 	if err != nil {
 		return errors.WithMessage(err, "failed to setup connection")
@@ -89,12 +86,12 @@ func (l *ldapAuthenticator) PlaintextAuthentication(userId persistence.UserIdent
 	return nil
 }
 
-func (l *ldapAuthenticator) HashedAuthentication(_ persistence.UserIdentifier, _ string) error {
+func (l *ldapAuthenticator) HashedAuthentication(_ model.UserIdentifier, _ string) error {
 	// TODO: is this possible?
 	return errors.New("unimplemented")
 }
 
-func (l *ldapAuthenticator) GetUserInfo(_ context.Context, userId persistence.UserIdentifier) (map[string]interface{}, error) {
+func (l *ldapAuthenticator) GetUserInfo(_ context.Context, userId model.UserIdentifier) (map[string]interface{}, error) {
 	conn, err := l.connect()
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to setup connection")
@@ -203,7 +200,7 @@ func (l ldapAuthenticator) ParseUserInfo(raw map[string]interface{}) (*Authentic
 		return nil, errors.WithMessage(err, "failed to check admin group")
 	}
 	userInfo := &AuthenticatorUserInfo{
-		Identifier: persistence.UserIdentifier(mapDefaultString(raw, l.cfg.FieldMap.UserIdentifier, "")),
+		Identifier: model.UserIdentifier(mapDefaultString(raw, l.cfg.FieldMap.UserIdentifier, "")),
 		Email:      mapDefaultString(raw, l.cfg.FieldMap.Email, ""),
 		Firstname:  mapDefaultString(raw, l.cfg.FieldMap.Firstname, ""),
 		Lastname:   mapDefaultString(raw, l.cfg.FieldMap.Lastname, ""),

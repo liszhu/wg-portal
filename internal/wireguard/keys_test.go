@@ -3,12 +3,12 @@ package wireguard
 import (
 	"testing"
 
-	"github.com/h44z/wg-portal/internal/persistence"
+	"github.com/h44z/wg-portal/internal/model"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetPrivateKeyBytes(t *testing.T) {
-	kp := persistence.KeyPair{
+	kp := model.KeyPair{
 		PrivateKey: "aGVsbG8=",
 		PublicKey:  "d29ybGQ=",
 	}
@@ -18,7 +18,7 @@ func TestGetPrivateKeyBytes(t *testing.T) {
 }
 
 func TestGetPublicKeyBytes(t *testing.T) {
-	kp := persistence.KeyPair{
+	kp := model.KeyPair{
 		PrivateKey: "aGVsbG8=",
 		PublicKey:  "d29ybGQ=",
 	}

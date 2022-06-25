@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/h44z/wg-portal/internal/persistence"
+	"github.com/h44z/wg-portal/internal/model"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 )
@@ -22,7 +22,7 @@ const (
 )
 
 type AuthenticatorUserInfo struct {
-	Identifier persistence.UserIdentifier
+	Identifier model.UserIdentifier
 	Email      string
 	Firstname  string
 	Lastname   string
@@ -31,7 +31,7 @@ type AuthenticatorUserInfo struct {
 	IsAdmin    bool
 }
 
-type Authenticator interface {
+type OauthAuthenticator interface {
 	GetType() AuthenticatorType
 	AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string
 	Exchange(ctx context.Context, code string, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error)
@@ -120,7 +120,7 @@ func (p plainOauthAuthenticator) GetUserInfo(ctx context.Context, token *oauth2.
 func (p plainOauthAuthenticator) ParseUserInfo(raw map[string]interface{}) (*AuthenticatorUserInfo, error) {
 	isAdmin, _ := strconv.ParseBool(mapDefaultString(raw, p.userInfoMapping.IsAdmin, ""))
 	userInfo := &AuthenticatorUserInfo{
-		Identifier: persistence.UserIdentifier(mapDefaultString(raw, p.userInfoMapping.UserIdentifier, "")),
+		Identifier: model.UserIdentifier(mapDefaultString(raw, p.userInfoMapping.UserIdentifier, "")),
 		Email:      mapDefaultString(raw, p.userInfoMapping.Email, ""),
 		Firstname:  mapDefaultString(raw, p.userInfoMapping.Firstname, ""),
 		Lastname:   mapDefaultString(raw, p.userInfoMapping.Lastname, ""),
@@ -209,7 +209,7 @@ func (o oidcAuthenticator) GetUserInfo(ctx context.Context, token *oauth2.Token,
 func (o oidcAuthenticator) ParseUserInfo(raw map[string]interface{}) (*AuthenticatorUserInfo, error) {
 	isAdmin, _ := strconv.ParseBool(mapDefaultString(raw, o.userInfoMapping.IsAdmin, ""))
 	userInfo := &AuthenticatorUserInfo{
-		Identifier: persistence.UserIdentifier(mapDefaultString(raw, o.userInfoMapping.UserIdentifier, "")),
+		Identifier: model.UserIdentifier(mapDefaultString(raw, o.userInfoMapping.UserIdentifier, "")),
 		Email:      mapDefaultString(raw, o.userInfoMapping.Email, ""),
 		Firstname:  mapDefaultString(raw, o.userInfoMapping.Firstname, ""),
 		Lastname:   mapDefaultString(raw, o.userInfoMapping.Lastname, ""),

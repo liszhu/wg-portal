@@ -6,12 +6,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/h44z/wg-portal/internal/persistence"
+	"github.com/h44z/wg-portal/internal/model"
 	"github.com/pkg/errors"
 	"github.com/vishvananda/netlink"
 )
 
-func (m *wgCtrlManager) GetAllUsedIPs(id persistence.InterfaceIdentifier) ([]*netlink.Addr, error) {
+func (m *wgCtrlManager) GetAllUsedIPs(id model.InterfaceIdentifier) ([]*netlink.Addr, error) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 
@@ -36,7 +36,7 @@ func (m *wgCtrlManager) GetAllUsedIPs(id persistence.InterfaceIdentifier) ([]*ne
 	return usedAddresses, nil
 }
 
-func (m *wgCtrlManager) GetUsedIPs(id persistence.InterfaceIdentifier, subnetCidr string) ([]*netlink.Addr, error) {
+func (m *wgCtrlManager) GetUsedIPs(id model.InterfaceIdentifier, subnetCidr string) ([]*netlink.Addr, error) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 
@@ -70,7 +70,7 @@ func (m *wgCtrlManager) GetUsedIPs(id persistence.InterfaceIdentifier, subnetCid
 	return usedAddresses, nil
 }
 
-func (m *wgCtrlManager) GetFreshIp(id persistence.InterfaceIdentifier, subnetCidr string, increment ...bool) (*netlink.Addr, error) {
+func (m *wgCtrlManager) GetFreshIp(id model.InterfaceIdentifier, subnetCidr string, increment ...bool) (*netlink.Addr, error) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 
