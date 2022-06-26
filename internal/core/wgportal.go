@@ -23,6 +23,7 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
+// wgPortal combines wireguard.Manager and user.Manager and other components.
 type wgPortal struct {
 	cfg *Config
 
@@ -232,10 +233,10 @@ func (w *wgPortal) findAndSortUsers(options *userSearchOptions) ([]*model.User, 
 	// find
 	switch options.filter {
 	case "":
-		users, err = w.users.GetAllUsers()
+		users, err = w.users.GetUsers()
 	default:
 		filterStr := strings.ToLower(options.filter)
-		users, err = w.users.GetFilteredUsers(func(user *model.User) bool {
+		users, err = w.users.GetUsers(func(user *model.User) bool {
 			if strings.Contains(strings.ToLower(string(user.Identifier)), filterStr) {
 				return true
 			}

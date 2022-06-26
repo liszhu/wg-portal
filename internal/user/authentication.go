@@ -50,7 +50,7 @@ func (p *persistentManager) HashedAuthentication(userId model.UserIdentifier, ha
 	return nil
 }
 
-func (p *persistentManager) HashPassword(plain string) (string, error) {
+func (p *persistentManager) hashPassword(plain string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
 	if err != nil {
 		return "", errors.WithMessage(err, "failed to hash password")

@@ -46,25 +46,45 @@ const (
 	SortDesc SortDirection = 0
 )
 
+type sortOptions struct {
+	sortDirection SortDirection
+	sortBy        string
+}
+
+func defaultSorting() sortOptions {
+	return sortOptions{
+		sortDirection: SortAsc,
+		sortBy:        "",
+	}
+}
+
 const PageSizeAll = 0
+
+type paginationOptions struct {
+	pageOffset int
+	pageSize   int
+}
+
+func defaultPagination() paginationOptions {
+	return paginationOptions{
+		pageOffset: 0,
+		pageSize:   PageSizeAll,
+	}
+}
 
 // region user-options
 
 type userSearchOptions struct {
-	sortDirection SortDirection
-	sortBy        string
-	filter        string
-	pageOffset    int
-	pageSize      int
+	paginationOptions
+	sortOptions
+	filter string
 }
 
 func UserSearchOptions() *userSearchOptions {
 	return &userSearchOptions{
-		sortDirection: SortAsc,
-		sortBy:        "",
-		filter:        "",
-		pageOffset:    0,
-		pageSize:      PageSizeAll,
+		sortOptions:       defaultSorting(),
+		paginationOptions: defaultPagination(),
+		filter:            "",
 	}
 }
 
@@ -131,21 +151,19 @@ func (s *userCreateOptions) WithDefaultPeer(createPeer bool, interfaces ...model
 // region interface-options
 
 type interfaceSearchOptions struct {
-	sortDirection SortDirection
-	sortBy        string
-	filter        string
-	typ           model.InterfaceType
+	sortOptions
+	filter string
+	typ    model.InterfaceType
 
 	withStats bool
 }
 
 func InterfaceSearchOptions() *interfaceSearchOptions {
 	return &interfaceSearchOptions{
-		sortDirection: SortAsc,
-		sortBy:        "",
-		filter:        "",
-		typ:           model.InterfaceTypeAny,
-		withStats:     false,
+		sortOptions: defaultSorting(),
+		filter:      "",
+		typ:         model.InterfaceTypeAny,
+		withStats:   false,
 	}
 }
 
@@ -187,10 +205,8 @@ func ImportOptions() *importOptions {
 // region peer-options
 
 type peerSearchOptions struct {
-	sortDirection SortDirection
-	sortBy        string
-	pageOffset    int
-	pageSize      int
+	sortOptions
+	paginationOptions
 
 	filter          string
 	interfaceFilter model.InterfaceIdentifier
@@ -201,14 +217,12 @@ type peerSearchOptions struct {
 
 func PeerSearchOptions() *peerSearchOptions {
 	return &peerSearchOptions{
-		sortDirection:   SortAsc,
-		sortBy:          "",
-		pageOffset:      0,
-		pageSize:        PageSizeAll,
-		filter:          "",
-		interfaceFilter: "",
-		userFilter:      "",
-		withStats:       false,
+		sortOptions:       defaultSorting(),
+		paginationOptions: defaultPagination(),
+		filter:            "",
+		interfaceFilter:   "",
+		userFilter:        "",
+		withStats:         false,
 	}
 }
 

@@ -42,75 +42,6 @@ func (_m *Manager) DeleteUser(identifier model.UserIdentifier) error {
 	return r0
 }
 
-// GetActiveUsers provides a mock function with given fields:
-func (_m *Manager) GetActiveUsers() ([]*model.User, error) {
-	ret := _m.Called()
-
-	var r0 []*model.User
-	if rf, ok := ret.Get(0).(func() []*model.User); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*model.User)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetAllUsers provides a mock function with given fields:
-func (_m *Manager) GetAllUsers() ([]*model.User, error) {
-	ret := _m.Called()
-
-	var r0 []*model.User
-	if rf, ok := ret.Get(0).(func() []*model.User); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*model.User)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetFilteredUsers provides a mock function with given fields: filter
-func (_m *Manager) GetFilteredUsers(filter user.Filter) ([]*model.User, error) {
-	ret := _m.Called(filter)
-
-	var r0 []*model.User
-	if rf, ok := ret.Get(0).(func(user.Filter) []*model.User); ok {
-		r0 = rf(filter)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*model.User)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(user.Filter) error); ok {
-		r1 = rf(filter)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetUser provides a mock function with given fields: id
 func (_m *Manager) GetUser(id model.UserIdentifier) (*model.User, error) {
 	ret := _m.Called(id)
@@ -134,20 +65,28 @@ func (_m *Manager) GetUser(id model.UserIdentifier) (*model.User, error) {
 	return r0, r1
 }
 
-// HashPassword provides a mock function with given fields: plain
-func (_m *Manager) HashPassword(plain string) (string, error) {
-	ret := _m.Called(plain)
+// GetUsers provides a mock function with given fields: filter
+func (_m *Manager) GetUsers(filter ...user.Filter) ([]*model.User, error) {
+	_va := make([]interface{}, len(filter))
+	for _i := range filter {
+		_va[_i] = filter[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func(string) string); ok {
-		r0 = rf(plain)
+	var r0 []*model.User
+	if rf, ok := ret.Get(0).(func(...user.Filter) []*model.User); ok {
+		r0 = rf(filter...)
 	} else {
-		r0 = ret.Get(0).(string)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*model.User)
+		}
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(plain)
+	if rf, ok := ret.Get(1).(func(...user.Filter) error); ok {
+		r1 = rf(filter...)
 	} else {
 		r1 = ret.Error(1)
 	}

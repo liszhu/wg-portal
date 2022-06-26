@@ -5,31 +5,22 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/h44z/wg-portal/internal/authentication"
 	"github.com/h44z/wg-portal/internal/model"
 )
-
-type loader interface {
-	GetUser(id model.UserIdentifier) (*model.User, error)
-	GetActiveUsers() ([]*model.User, error)
-	GetAllUsers() ([]*model.User, error)
-	GetFilteredUsers(filter Filter) ([]*model.User, error)
-}
-
-type updater interface {
-	CreateUser(user *model.User) error
-	UpdateUser(user *model.User) error
-	DeleteUser(identifier model.UserIdentifier) error
-}
 
 // Filter can be used to filter users. If this function returns true, the given user is included in the result.
 type Filter func(user *model.User) bool
 
 type Manager interface {
-	loader
-	updater
-	authentication.PlainAuthenticator
-	authentication.PasswordHasher
+	GetUser(id model.UserIdentifier) (*model.User, error)
+	GetUsers(filter ...Filter) ([]*model.User, error)
+
+	CreateUser(user *model.User) error
+	UpdateUser(user *model.User) error
+	DeleteUser(identifier model.UserIdentifier) error
+
+	PlaintextAuthentication(userId model.UserIdentifier, plainPassword string) error
+	HashedAuthentication(userId model.UserIdentifier, hashedPassword string) error
 }
 
 type persistentManager struct {
@@ -66,39 +57,14 @@ func (p *persistentManager) GetUser(id model.UserIdentifier) (*model.User, error
 	return p.users[id], nil
 }
 
-func (p *persistentManager) GetActiveUsers() ([]*model.User, error) {
+// GetUsers accepts 0 or 1 filter function.
+func (p *persistentManager) GetUsers(filter ...Filter) ([]*model.User, error) {
 	p.mux.RLock()
 	defer p.mux.RUnlock()
 
 	users := make([]*model.User, 0, len(p.users))
 	for _, user := range p.users {
-		if !user.IsDisabled() {
-			users = append(users, user)
-		}
-	}
-
-	return users, nil
-}
-
-func (p *persistentManager) GetAllUsers() ([]*model.User, error) {
-	p.mux.RLock()
-	defer p.mux.RUnlock()
-
-	users := make([]*model.User, 0, len(p.users))
-	for _, user := range p.users {
-		users = append(users, user)
-	}
-
-	return users, nil
-}
-
-func (p *persistentManager) GetFilteredUsers(filter Filter) ([]*model.User, error) {
-	p.mux.RLock()
-	defer p.mux.RUnlock()
-
-	users := make([]*model.User, 0, len(p.users))
-	for _, user := range p.users {
-		if filter == nil || filter(user) {
+		if len(filter) == 0 || filter[0](user) {
 			users = append(users, user)
 		}
 	}
@@ -120,7 +86,7 @@ func (p *persistentManager) CreateUser(user *model.User) error {
 
 	// Hash user password (if set)
 	if user.Password != "" {
-		hashedPassword, err := p.HashPassword(string(user.Password))
+		hashedPassword, err := p.hashPassword(string(user.Password))
 		if err != nil {
 			return fmt.Errorf("unable to hash password: %w", err)
 		}
@@ -151,7 +117,7 @@ func (p *persistentManager) UpdateUser(user *model.User) error {
 
 	// Hash user password (if set)
 	if user.Password != "" {
-		hashedPassword, err := p.HashPassword(string(user.Password))
+		hashedPassword, err := p.hashPassword(string(user.Password))
 		if err != nil {
 			return fmt.Errorf("unable to hash password: %w", err)
 		}
