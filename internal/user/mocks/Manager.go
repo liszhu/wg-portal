@@ -42,29 +42,6 @@ func (_m *Manager) DeleteUser(identifier model.UserIdentifier) error {
 	return r0
 }
 
-// GetActiveUser provides a mock function with given fields: id
-func (_m *Manager) GetActiveUser(id model.UserIdentifier) (*model.User, error) {
-	ret := _m.Called(id)
-
-	var r0 *model.User
-	if rf, ok := ret.Get(0).(func(model.UserIdentifier) *model.User); ok {
-		r0 = rf(id)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*model.User)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(model.UserIdentifier) error); ok {
-		r1 = rf(id)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetActiveUsers provides a mock function with given fields:
 func (_m *Manager) GetActiveUsers() ([]*model.User, error) {
 	ret := _m.Called()

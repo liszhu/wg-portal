@@ -36,11 +36,10 @@ type Interface struct {
 	SaveConfig bool // automatically persist config changes to the wgX.conf file
 
 	// WG Portal specific
-	Enabled     bool          // flag that specifies if the interface is enabled (up) or nor (down)
 	DisplayName string        // a nice display name/ description for the interface
 	Type        InterfaceType // the interface type, either InterfaceTypeServer or InterfaceTypeClient
 	DriverType  string        // the interface driver type (linux, software, ...)
-	Disabled    *time.Time    `gorm:"index"` // if this field is set, the interface is disabled
+	Disabled    *time.Time    `gorm:"index"` // flag that specifies if the interface is enabled (up) or not (down)
 
 	// Default settings for the peer, used for new peers, those settings will be published to ConfigOption options of
 	// the peer config

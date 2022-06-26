@@ -81,11 +81,11 @@ func (_m *Manager) GetAllUsedIPs(device model.InterfaceIdentifier) ([]*netlink.A
 	return r0, r1
 }
 
-// GetFreshIp provides a mock function with given fields: device, subnetCidr, increment
-func (_m *Manager) GetFreshIp(device model.InterfaceIdentifier, subnetCidr string, increment ...bool) (*netlink.Addr, error) {
-	_va := make([]interface{}, len(increment))
-	for _i := range increment {
-		_va[_i] = increment[_i]
+// GetFreshIp provides a mock function with given fields: device, subnetCidr, reservedIps
+func (_m *Manager) GetFreshIp(device model.InterfaceIdentifier, subnetCidr string, reservedIps ...*netlink.Addr) (*netlink.Addr, error) {
+	_va := make([]interface{}, len(reservedIps))
+	for _i := range reservedIps {
+		_va[_i] = reservedIps[_i]
 	}
 	var _ca []interface{}
 	_ca = append(_ca, device, subnetCidr)
@@ -93,8 +93,8 @@ func (_m *Manager) GetFreshIp(device model.InterfaceIdentifier, subnetCidr strin
 	ret := _m.Called(_ca...)
 
 	var r0 *netlink.Addr
-	if rf, ok := ret.Get(0).(func(model.InterfaceIdentifier, string, ...bool) *netlink.Addr); ok {
-		r0 = rf(device, subnetCidr, increment...)
+	if rf, ok := ret.Get(0).(func(model.InterfaceIdentifier, string, ...*netlink.Addr) *netlink.Addr); ok {
+		r0 = rf(device, subnetCidr, reservedIps...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*netlink.Addr)
@@ -102,8 +102,29 @@ func (_m *Manager) GetFreshIp(device model.InterfaceIdentifier, subnetCidr strin
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(model.InterfaceIdentifier, string, ...bool) error); ok {
-		r1 = rf(device, subnetCidr, increment...)
+	if rf, ok := ret.Get(1).(func(model.InterfaceIdentifier, string, ...*netlink.Addr) error); ok {
+		r1 = rf(device, subnetCidr, reservedIps...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetFreshIps provides a mock function with given fields: device
+func (_m *Manager) GetFreshIps(device model.InterfaceIdentifier) (string, error) {
+	ret := _m.Called(device)
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func(model.InterfaceIdentifier) string); ok {
+		r0 = rf(device)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(model.InterfaceIdentifier) error); ok {
+		r1 = rf(device)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -270,6 +291,29 @@ func (_m *Manager) GetPeers(device model.InterfaceIdentifier) ([]*model.Peer, er
 	return r0, r1
 }
 
+// GetPeersForUser provides a mock function with given fields: userId
+func (_m *Manager) GetPeersForUser(userId model.UserIdentifier) ([]*model.Peer, error) {
+	ret := _m.Called(userId)
+
+	var r0 []*model.Peer
+	if rf, ok := ret.Get(0).(func(model.UserIdentifier) []*model.Peer); ok {
+		r0 = rf(userId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*model.Peer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(model.UserIdentifier) error); ok {
+		r1 = rf(userId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetPreSharedKey provides a mock function with given fields:
 func (_m *Manager) GetPreSharedKey() (model.PreSharedKey, error) {
 	ret := _m.Called()
@@ -326,6 +370,43 @@ func (_m *Manager) ImportInterface(cfg *model.ImportableInterface) error {
 	}
 
 	return r0
+}
+
+// IpAddressesToString provides a mock function with given fields: addresses
+func (_m *Manager) IpAddressesToString(addresses []netlink.Addr) string {
+	ret := _m.Called(addresses)
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func([]netlink.Addr) string); ok {
+		r0 = rf(addresses)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// ParseIpAddressString provides a mock function with given fields: addrStr
+func (_m *Manager) ParseIpAddressString(addrStr string) ([]*netlink.Addr, error) {
+	ret := _m.Called(addrStr)
+
+	var r0 []*netlink.Addr
+	if rf, ok := ret.Get(0).(func(string) []*netlink.Addr); ok {
+		r0 = rf(addrStr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*netlink.Addr)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(addrStr)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // RemovePeer provides a mock function with given fields: peer

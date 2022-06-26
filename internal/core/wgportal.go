@@ -511,21 +511,91 @@ func (w *wgPortal) findAndSortInterfaces(options *interfaceSearchOptions) ([]*mo
 }
 
 func (w *wgPortal) CreateInterface(ctx context.Context, m *model.Interface) (*model.Interface, error) {
-	//TODO implement me
-	panic("implement me")
+	err := w.wg.CreateInterface(m.Identifier)
+	if err != nil {
+		return nil, fmt.Errorf("creation error: %w", err)
+	}
+
+	err = w.wg.UpdateInterface(m)
+	if err != nil {
+		return nil, fmt.Errorf("update error: %w", err)
+	}
+
+	return m, nil
 }
 
 func (w *wgPortal) UpdateInterface(ctx context.Context, m *model.Interface) (*model.Interface, error) {
-	//TODO implement me
-	panic("implement me")
+	err := w.wg.UpdateInterface(m)
+	if err != nil {
+		return nil, fmt.Errorf("update error: %w", err)
+	}
+
+	return m, nil
 }
 
 func (w *wgPortal) DeleteInterface(ctx context.Context, identifier model.InterfaceIdentifier) error {
-	//TODO implement me
-	panic("implement me")
+	err := w.wg.DeleteInterface(identifier)
+	if err != nil {
+		return fmt.Errorf("deletion error: %w", err)
+	}
+
+	return nil
 }
 
-func (w *wgPortal) GetInterfaceWgQuickConfig(ctx context.Context, m *model.Interface) (io.Reader, error) {
+func (w *wgPortal) PrepareNewInterface(ctx context.Context, identifier model.InterfaceIdentifier) (*model.Interface, error) {
+	keyPair, err := w.wg.GetFreshKeypair()
+	if err != nil {
+		return nil, err
+	}
+
+	interfaces, err := w.wg.GetInterfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	usedPorts := make([]int, len(interfaces))
+	for _, iface := range interfaces {
+		usedPorts = append(usedPorts, iface.ListenPort)
+	}
+	sort.Ints(usedPorts)
+
+	freePort := 51820
+	if len(usedPorts) > 0 {
+		freePort = usedPorts[len(usedPorts)-1] + 1
+	}
+
+	i := &model.Interface{
+		Identifier:  identifier,
+		KeyPair:     keyPair,
+		ListenPort:  freePort,
+		DisplayName: string(identifier),
+		Type:        "server",
+		DriverType:  "linux",
+	}
+
+	return i, nil
+}
+
+func (w *wgPortal) GetInterfaceWgQuickConfig(ctx context.Context, identifier model.InterfaceIdentifier) (io.Reader, error) {
+	iface, err := w.wg.GetInterface(identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	peers, err := w.wg.GetPeers(identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	config, err := w.wg.GetInterfaceConfig(iface, peers)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+
+func (w *wgPortal) ApplyGlobalSettings(context.Context, model.InterfaceIdentifier) error {
 	//TODO implement me
 	panic("implement me")
 }

@@ -118,6 +118,15 @@ func (p *persistentManager) CreateUser(user *model.User) error {
 		return ErrAlreadyExists
 	}
 
+	// Hash user password (if set)
+	if user.Password != "" {
+		hashedPassword, err := p.HashPassword(string(user.Password))
+		if err != nil {
+			return fmt.Errorf("unable to hash password: %w", err)
+		}
+		user.Password = model.PrivateString(hashedPassword)
+	}
+
 	p.users[user.Identifier] = user
 
 	err := p.persistUser(user.Identifier, false)

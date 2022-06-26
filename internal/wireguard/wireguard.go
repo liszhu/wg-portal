@@ -191,13 +191,13 @@ func (m *wgCtrlManager) UpdateInterface(cfg *model.Interface) error {
 	}
 
 	// Update link state
-	if cfg.Enabled {
-		if err := m.nl.LinkSetUp(link); err != nil {
-			return errors.WithMessage(err, "failed to enable low level interface")
-		}
-	} else {
+	if cfg.IsDisabled() {
 		if err := m.nl.LinkSetDown(link); err != nil {
 			return errors.WithMessage(err, "failed to disable low level interface")
+		}
+	} else {
+		if err := m.nl.LinkSetUp(link); err != nil {
+			return errors.WithMessage(err, "failed to enable low level interface")
 		}
 	}
 

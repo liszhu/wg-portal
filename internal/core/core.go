@@ -20,7 +20,9 @@ type WgPortal interface {
 	CreateInterface(context.Context, *model.Interface) (*model.Interface, error)
 	UpdateInterface(context.Context, *model.Interface) (*model.Interface, error)
 	DeleteInterface(context.Context, model.InterfaceIdentifier) error
-	GetInterfaceWgQuickConfig(context.Context, *model.Interface) (io.Reader, error)
+	PrepareNewInterface(context.Context, model.InterfaceIdentifier) (*model.Interface, error)
+	GetInterfaceWgQuickConfig(context.Context, model.InterfaceIdentifier) (io.Reader, error)
+	ApplyGlobalSettings(context.Context, model.InterfaceIdentifier) error
 
 	GetImportableInterfaces(context.Context, *interfaceSearchOptions) ([]model.ImportableInterface, error)
 	ImportInterface(context.Context, *model.ImportableInterface, *importOptions) (*model.Interface, error)
@@ -116,6 +118,12 @@ func UserCreateOptions() *userCreateOptions {
 	return &userCreateOptions{
 		createDefaultPeer: false,
 	}
+}
+
+func (s *userCreateOptions) WithDefaultPeer(createPeer bool, interfaces ...model.InterfaceIdentifier) *userCreateOptions {
+	s.createDefaultPeer = createPeer
+	s.defaultPeerInterfaces = interfaces
+	return s
 }
 
 // endregion user-options
