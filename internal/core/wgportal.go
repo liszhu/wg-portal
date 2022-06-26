@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -156,77 +155,38 @@ func (w *wgPortal) RunBackgroundTasks(ctx context.Context) {
 	logrus.Info("Finished background tasks")
 }
 
-func (w *wgPortal) GetUsers(ctx context.Context, options *userSearchOptions) ([]model.User, error) {
+func (w *wgPortal) GetUsers(ctx context.Context, options *userSearchOptions) (Paginator[*model.User], error) {
 	if options == nil {
 		options = UserSearchOptions()
 	}
 
-	users, err := w.findAndSortUsers(options)
+	users, err := w.filterUsers(options)
 	if err != nil {
 		return nil, err
 	}
 
-	var filteredAndPagedUsers []model.User
-
-	// page
-	if options.pageSize != PageSizeAll {
-		if options.pageOffset >= len(users) {
-			return nil, errors.New("invalid page offset")
-		}
-
-		filteredAndPagedUsers = make([]model.User, 0, options.pageSize)
-		for i := options.pageOffset; i < options.pageOffset+options.pageSize; i++ {
-			if i >= len(users) {
-				break // check if we reached the end
-			}
-			filteredAndPagedUsers = append(filteredAndPagedUsers, *users[i])
-		}
-	} else {
-		filteredAndPagedUsers = make([]model.User, len(users))
-		for i := range users {
-			filteredAndPagedUsers[i] = *users[i]
-		}
-	}
-
-	return filteredAndPagedUsers, nil
+	return NewInMemoryPaginator(users), nil
 }
 
-func (w *wgPortal) GetUserIds(ctx context.Context, options *userSearchOptions) ([]model.UserIdentifier, error) {
+func (w *wgPortal) GetUserIds(ctx context.Context, options *userSearchOptions) (Paginator[model.UserIdentifier], error) {
 	if options == nil {
 		options = UserSearchOptions()
 	}
 
-	users, err := w.findAndSortUsers(options)
+	users, err := w.filterUsers(options)
 	if err != nil {
 		return nil, err
 	}
 
-	var filteredAndPagedIds []model.UserIdentifier
-
-	// page
-	if options.pageSize != PageSizeAll {
-		if options.pageOffset >= len(users) {
-			return nil, errors.New("invalid page offset")
-		}
-
-		filteredAndPagedIds = make([]model.UserIdentifier, 0, options.pageSize)
-		for i := options.pageOffset; i < options.pageOffset+options.pageSize; i++ {
-			if i >= len(users) {
-				break // check if we reached the end
-			}
-			filteredAndPagedIds = append(filteredAndPagedIds, users[i].Identifier)
-		}
-	} else {
-		filteredAndPagedIds = make([]model.UserIdentifier, len(users))
-		for i := range users {
-			filteredAndPagedIds[i] = users[i].Identifier
-		}
+	userIds := make([]model.UserIdentifier, len(users))
+	for i := range users {
+		userIds[i] = users[i].Identifier
 	}
 
-	return filteredAndPagedIds, nil
+	return NewInMemoryPaginator(userIds), nil
 }
 
-func (w *wgPortal) findAndSortUsers(options *userSearchOptions) ([]*model.User, error) {
+func (w *wgPortal) filterUsers(options *userSearchOptions) ([]*model.User, error) {
 	var users []*model.User
 	var err error
 
@@ -256,28 +216,6 @@ func (w *wgPortal) findAndSortUsers(options *userSearchOptions) ([]*model.User, 
 		return nil, fmt.Errorf("failed to load users from manager: %w", err)
 	}
 
-	// sort
-	sort.Slice(users, func(i, j int) bool {
-		sortRes := false
-		switch strings.ToLower(options.sortBy) {
-		case "firstname":
-			sortRes = users[i].Firstname < users[j].Firstname
-		case "lastname":
-			sortRes = users[i].Lastname < users[j].Lastname
-		case "email":
-			sortRes = users[i].Email < users[j].Email
-		case "source":
-			sortRes = users[i].Source < users[j].Source
-		default:
-			sortRes = users[i].Identifier < users[j].Identifier
-		}
-
-		if options.sortDirection == SortDesc {
-			sortRes = !sortRes
-		}
-
-		return sortRes
-	})
 	return users, nil
 }
 
@@ -444,25 +382,20 @@ func (w *wgPortal) DeleteUser(ctx context.Context, identifier model.UserIdentifi
 	return nil
 }
 
-func (w *wgPortal) GetInterfaces(ctx context.Context, options *interfaceSearchOptions) ([]model.Interface, error) {
+func (w *wgPortal) GetInterfaces(ctx context.Context, options *interfaceSearchOptions) (Paginator[*model.Interface], error) {
 	if options == nil {
 		options = InterfaceSearchOptions()
 	}
 
-	interfaces, err := w.findAndSortInterfaces(options)
+	interfaces, err := w.filterInterfaces(options)
 	if err != nil {
 		return nil, err
 	}
 
-	filteredInterfaces := make([]model.Interface, len(interfaces))
-	for i := range interfaces {
-		filteredInterfaces[i] = *interfaces[i]
-	}
-
-	return filteredInterfaces, nil
+	return NewInMemoryPaginator(interfaces), nil
 }
 
-func (w *wgPortal) findAndSortInterfaces(options *interfaceSearchOptions) ([]*model.Interface, error) {
+func (w *wgPortal) filterInterfaces(options *interfaceSearchOptions) ([]*model.Interface, error) {
 	var interfaces []*model.Interface
 	var err error
 
@@ -493,22 +426,6 @@ func (w *wgPortal) findAndSortInterfaces(options *interfaceSearchOptions) ([]*mo
 		interfaces = interfaces[:n]
 	}
 
-	// sort
-	sort.Slice(interfaces, func(i, j int) bool {
-		sortRes := false
-		switch strings.ToLower(options.sortBy) {
-		case "displayname", "name", "display_name":
-			sortRes = interfaces[i].DisplayName < interfaces[j].DisplayName
-		default:
-			sortRes = interfaces[i].Identifier < interfaces[j].Identifier
-		}
-
-		if options.sortDirection == SortDesc {
-			sortRes = !sortRes
-		}
-
-		return sortRes
-	})
 	return interfaces, nil
 }
 
@@ -606,18 +523,13 @@ func (w *wgPortal) ApplyGlobalSettings(ctx context.Context, identifier model.Int
 	return nil
 }
 
-func (w *wgPortal) GetImportableInterfaces(ctx context.Context) ([]model.ImportableInterface, error) {
+func (w *wgPortal) GetImportableInterfaces(ctx context.Context) (Paginator[*model.ImportableInterface], error) {
 	interfaces, err := w.wg.GetImportableInterfaces()
 	if err != nil {
 		return nil, err
 	}
 
-	importableInterfaces := make([]model.ImportableInterface, len(interfaces))
-	for i := range interfaces {
-		importableInterfaces[i] = *interfaces[i]
-	}
-
-	return importableInterfaces, nil
+	return NewInMemoryPaginator(interfaces), nil
 }
 
 func (w *wgPortal) ImportInterface(ctx context.Context, identifier model.InterfaceIdentifier, options *importOptions) (*model.Interface, error) {
@@ -652,77 +564,38 @@ func (w *wgPortal) ImportInterface(ctx context.Context, identifier model.Interfa
 	return importedInterface, nil
 }
 
-func (w *wgPortal) GetPeers(ctx context.Context, options *peerSearchOptions) ([]model.Peer, error) {
+func (w *wgPortal) GetPeers(ctx context.Context, options *peerSearchOptions) (Paginator[*model.Peer], error) {
 	if options == nil {
 		options = PeerSearchOptions()
 	}
 
-	peers, err := w.findAndSortPeers(options)
+	peers, err := w.filterPeers(options)
 	if err != nil {
 		return nil, err
 	}
 
-	var filteredAndPagedPeers []model.Peer
-
-	// page
-	if options.pageSize != PageSizeAll {
-		if options.pageOffset >= len(peers) {
-			return nil, errors.New("invalid page offset")
-		}
-
-		filteredAndPagedPeers = make([]model.Peer, 0, options.pageSize)
-		for i := options.pageOffset; i < options.pageOffset+options.pageSize; i++ {
-			if i >= len(peers) {
-				break // check if we reached the end
-			}
-			filteredAndPagedPeers = append(filteredAndPagedPeers, *peers[i])
-		}
-	} else {
-		filteredAndPagedPeers = make([]model.Peer, len(peers))
-		for i := range peers {
-			filteredAndPagedPeers[i] = *peers[i]
-		}
-	}
-
-	return filteredAndPagedPeers, nil
+	return NewInMemoryPaginator(peers), nil
 }
 
-func (w *wgPortal) GetPeerIds(ctx context.Context, options *peerSearchOptions) ([]model.PeerIdentifier, error) {
+func (w *wgPortal) GetPeerIds(ctx context.Context, options *peerSearchOptions) (Paginator[model.PeerIdentifier], error) {
 	if options == nil {
 		options = PeerSearchOptions()
 	}
 
-	peers, err := w.findAndSortPeers(options)
+	peers, err := w.filterPeers(options)
 	if err != nil {
 		return nil, err
 	}
 
-	var filteredAndPagedPeerIds []model.PeerIdentifier
-
-	// page
-	if options.pageSize != PageSizeAll {
-		if options.pageOffset >= len(peers) {
-			return nil, errors.New("invalid page offset")
-		}
-
-		filteredAndPagedPeerIds = make([]model.PeerIdentifier, 0, options.pageSize)
-		for i := options.pageOffset; i < options.pageOffset+options.pageSize; i++ {
-			if i >= len(peers) {
-				break // check if we reached the end
-			}
-			filteredAndPagedPeerIds = append(filteredAndPagedPeerIds, peers[i].Identifier)
-		}
-	} else {
-		filteredAndPagedPeerIds = make([]model.PeerIdentifier, len(peers))
-		for i := range peers {
-			filteredAndPagedPeerIds[i] = peers[i].Identifier
-		}
+	peerIds := make([]model.PeerIdentifier, len(peers))
+	for i := range peers {
+		peerIds[i] = peers[i].Identifier
 	}
 
-	return filteredAndPagedPeerIds, nil
+	return NewInMemoryPaginator(peerIds), nil
 }
 
-func (w *wgPortal) findAndSortPeers(options *peerSearchOptions) ([]*model.Peer, error) {
+func (w *wgPortal) filterPeers(options *peerSearchOptions) ([]*model.Peer, error) {
 	var peers []*model.Peer
 	var err error
 
@@ -774,24 +647,6 @@ func (w *wgPortal) findAndSortPeers(options *peerSearchOptions) ([]*model.Peer, 
 		return nil, fmt.Errorf("failed to load peers from manager: %w", err)
 	}
 
-	// sort
-	sort.Slice(peers, func(i, j int) bool {
-		sortRes := false
-		switch strings.ToLower(options.sortBy) {
-		case "displayname", "name", "display_name":
-			sortRes = peers[i].DisplayName < peers[j].DisplayName
-		case "publickey":
-			sortRes = peers[i].PublicKey < peers[j].PublicKey
-		default:
-			sortRes = peers[i].Identifier < peers[j].Identifier
-		}
-
-		if options.sortDirection == SortDesc {
-			sortRes = !sortRes
-		}
-
-		return sortRes
-	})
 	return peers, nil
 }
 
@@ -810,8 +665,12 @@ func (w *wgPortal) CreatePeer(ctx context.Context, peer *model.Peer) (*model.Pee
 }
 
 func (w *wgPortal) PrepareNewPeer(ctx context.Context, identifier model.InterfaceIdentifier) (*model.Peer, error) {
-	//TODO implement me
-	panic("implement me")
+	preparedPeer, err := w.preparePeer(ctx, identifier, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare default peer for %s: %w", identifier, err)
+	}
+
+	return preparedPeer, nil
 }
 
 func (w *wgPortal) UpdatePeer(ctx context.Context, peer *model.Peer) (*model.Peer, error) {

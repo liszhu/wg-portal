@@ -10,13 +10,13 @@ import (
 type WgPortal interface {
 	RunBackgroundTasks(context.Context)
 
-	GetUsers(context.Context, *userSearchOptions) ([]model.User, error)
-	GetUserIds(context.Context, *userSearchOptions) ([]model.UserIdentifier, error)
+	GetUsers(context.Context, *userSearchOptions) (Paginator[*model.User], error)
+	GetUserIds(context.Context, *userSearchOptions) (Paginator[model.UserIdentifier], error)
 	CreateUser(context.Context, *model.User, *userCreateOptions) (*model.User, error)
 	UpdateUser(context.Context, *model.User, *userUpdateOptions) (*model.User, error)
 	DeleteUser(context.Context, model.UserIdentifier, *userDeleteOptions) error
 
-	GetInterfaces(context.Context, *interfaceSearchOptions) ([]model.Interface, error)
+	GetInterfaces(context.Context, *interfaceSearchOptions) (Paginator[*model.Interface], error)
 	CreateInterface(context.Context, *model.Interface) (*model.Interface, error)
 	UpdateInterface(context.Context, *model.Interface) (*model.Interface, error)
 	DeleteInterface(context.Context, model.InterfaceIdentifier) error
@@ -24,11 +24,11 @@ type WgPortal interface {
 	GetInterfaceWgQuickConfig(context.Context, model.InterfaceIdentifier) (io.Reader, error)
 	ApplyGlobalSettings(context.Context, model.InterfaceIdentifier) error
 
-	GetImportableInterfaces(context.Context) ([]model.ImportableInterface, error)
+	GetImportableInterfaces(context.Context) (Paginator[*model.ImportableInterface], error)
 	ImportInterface(context.Context, model.InterfaceIdentifier, *importOptions) (*model.Interface, error)
 
-	GetPeers(context.Context, *peerSearchOptions) ([]model.Peer, error)
-	GetPeerIds(context.Context, *peerSearchOptions) ([]model.PeerIdentifier, error)
+	GetPeers(context.Context, *peerSearchOptions) (Paginator[*model.Peer], error)
+	GetPeerIds(context.Context, *peerSearchOptions) (Paginator[model.PeerIdentifier], error)
 	CreatePeer(context.Context, *model.Peer) (*model.Peer, error)
 	PrepareNewPeer(context.Context, model.InterfaceIdentifier) (*model.Peer, error)
 	UpdatePeer(context.Context, *model.Peer) (*model.Peer, error)
@@ -39,73 +39,20 @@ type WgPortal interface {
 	SendWgQuickConfigMail(context.Context, *mailOptions) error
 }
 
-type SortDirection int
-
-const (
-	SortAsc  SortDirection = 1
-	SortDesc SortDirection = 0
-)
-
-type sortOptions struct {
-	sortDirection SortDirection
-	sortBy        string
-}
-
-func defaultSorting() sortOptions {
-	return sortOptions{
-		sortDirection: SortAsc,
-		sortBy:        "",
-	}
-}
-
-const PageSizeAll = 0
-
-type paginationOptions struct {
-	pageOffset int
-	pageSize   int
-}
-
-func defaultPagination() paginationOptions {
-	return paginationOptions{
-		pageOffset: 0,
-		pageSize:   PageSizeAll,
-	}
-}
-
 // region user-options
 
 type userSearchOptions struct {
-	paginationOptions
-	sortOptions
 	filter string
 }
 
 func UserSearchOptions() *userSearchOptions {
 	return &userSearchOptions{
-		sortOptions:       defaultSorting(),
-		paginationOptions: defaultPagination(),
-		filter:            "",
+		filter: "",
 	}
-}
-
-func (s *userSearchOptions) WithPageOffset(offset int) *userSearchOptions {
-	s.pageOffset = offset
-	return s
-}
-
-func (s *userSearchOptions) WithPageSize(size int) *userSearchOptions {
-	s.pageSize = size
-	return s
 }
 
 func (s *userSearchOptions) WithFilter(filter string) *userSearchOptions {
 	s.filter = filter
-	return s
-}
-
-func (s *userSearchOptions) WithSorting(property string, direction SortDirection) *userSearchOptions {
-	s.sortBy = property
-	s.sortDirection = direction
 	return s
 }
 
@@ -151,7 +98,6 @@ func (s *userCreateOptions) WithDefaultPeer(createPeer bool, interfaces ...model
 // region interface-options
 
 type interfaceSearchOptions struct {
-	sortOptions
 	filter string
 	typ    model.InterfaceType
 
@@ -160,10 +106,9 @@ type interfaceSearchOptions struct {
 
 func InterfaceSearchOptions() *interfaceSearchOptions {
 	return &interfaceSearchOptions{
-		sortOptions: defaultSorting(),
-		filter:      "",
-		typ:         model.InterfaceTypeAny,
-		withStats:   false,
+		filter:    "",
+		typ:       model.InterfaceTypeAny,
+		withStats: false,
 	}
 }
 
@@ -174,12 +119,6 @@ func (s *interfaceSearchOptions) WithFilter(filter string) *interfaceSearchOptio
 
 func (s *interfaceSearchOptions) WithType(typ model.InterfaceType) *interfaceSearchOptions {
 	s.typ = typ
-	return s
-}
-
-func (s *interfaceSearchOptions) WithSorting(property string, direction SortDirection) *interfaceSearchOptions {
-	s.sortBy = property
-	s.sortDirection = direction
 	return s
 }
 
@@ -205,9 +144,6 @@ func ImportOptions() *importOptions {
 // region peer-options
 
 type peerSearchOptions struct {
-	sortOptions
-	paginationOptions
-
 	filter          string
 	interfaceFilter model.InterfaceIdentifier
 	userFilter      model.UserIdentifier
@@ -217,29 +153,11 @@ type peerSearchOptions struct {
 
 func PeerSearchOptions() *peerSearchOptions {
 	return &peerSearchOptions{
-		sortOptions:       defaultSorting(),
-		paginationOptions: defaultPagination(),
-		filter:            "",
-		interfaceFilter:   "",
-		userFilter:        "",
-		withStats:         false,
+		filter:          "",
+		interfaceFilter: "",
+		userFilter:      "",
+		withStats:       false,
 	}
-}
-
-func (s *peerSearchOptions) WithPageOffset(offset int) *peerSearchOptions {
-	s.pageOffset = offset
-	return s
-}
-
-func (s *peerSearchOptions) WithPageSize(size int) *peerSearchOptions {
-	s.pageSize = size
-	return s
-}
-
-func (s *peerSearchOptions) WithSorting(property string, direction SortDirection) *peerSearchOptions {
-	s.sortBy = property
-	s.sortDirection = direction
-	return s
 }
 
 func (s *peerSearchOptions) WithFilter(filter string) *peerSearchOptions {
