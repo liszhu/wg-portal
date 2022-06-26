@@ -249,6 +249,19 @@ func (m *wgCtrlManager) ApplyDefaultConfigs(id model.InterfaceIdentifier) error 
 	return nil
 }
 
+func (m *wgCtrlManager) GetPeer(id model.PeerIdentifier) (*model.Peer, error) {
+	m.mux.Lock()
+	defer m.mux.Unlock()
+
+	if !m.peerExists(id) {
+		return nil, ErrPeerNotFound
+	}
+
+	peer, _ := m.getPeer(id)
+
+	return peer, nil
+}
+
 func (m *wgCtrlManager) GetPeers(interfaceId model.InterfaceIdentifier) ([]*model.Peer, error) {
 	m.mux.RLock()
 	defer m.mux.RUnlock()
@@ -546,7 +559,7 @@ func (m *wgCtrlManager) getPeer(id model.PeerIdentifier) (*model.Peer, error) {
 		}
 	}
 
-	return nil, errors.New("peer not found")
+	return nil, ErrPeerNotFound
 }
 
 func (m *wgCtrlManager) convertWireGuardInterface(device *wgtypes.Device) (*model.ImportableInterface, error) {

@@ -1,7 +1,9 @@
 package core
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -10,19 +12,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
-	"golang.zx2c4.com/wireguard/wgctrl"
-
-	"github.com/h44z/wg-portal/internal/lowlevel"
-
-	"github.com/pkg/errors"
-
 	"github.com/h44z/wg-portal/internal/authentication"
+	"github.com/h44z/wg-portal/internal/lowlevel"
 	"github.com/h44z/wg-portal/internal/model"
 	"github.com/h44z/wg-portal/internal/persistence"
 	"github.com/h44z/wg-portal/internal/user"
 	"github.com/h44z/wg-portal/internal/wireguard"
+	"github.com/sirupsen/logrus"
+	"github.com/skip2/go-qrcode"
+	"golang.zx2c4.com/wireguard/wgctrl"
 )
 
 type wgPortal struct {
@@ -92,7 +90,7 @@ func (w *wgPortal) setup(ctx context.Context) error {
 func (w *wgPortal) setupExternalAuthProviders(ctx context.Context) error {
 	extUrl, err := url.Parse(w.cfg.Core.ExternalUrl)
 	if err != nil {
-		return errors.WithMessage(err, "failed to parse external url")
+		return fmt.Errorf("failed to parse external url: %w", err)
 	}
 
 	for i := range w.cfg.Auth.OpenIDConnect {
@@ -100,7 +98,7 @@ func (w *wgPortal) setupExternalAuthProviders(ctx context.Context) error {
 		providerId := strings.ToLower(providerCfg.ProviderName)
 
 		if _, exists := w.oauthAuthenticators[providerId]; exists {
-			return errors.Errorf("auth provider with name %s is already registerd", providerId)
+			return fmt.Errorf("auth provider with name %s is already registerd", providerId)
 		}
 
 		redirectUrl := *extUrl
@@ -108,7 +106,7 @@ func (w *wgPortal) setupExternalAuthProviders(ctx context.Context) error {
 
 		authenticator, err := authentication.NewOidcAuthenticator(ctx, redirectUrl.String(), providerCfg)
 		if err != nil {
-			return errors.WithMessagef(err, "failed to setup oidc authentication provider %s", providerCfg.ProviderName)
+			return fmt.Errorf("failed to setup oidc authentication provider %s: %w", providerCfg.ProviderName, err)
 		}
 		w.oauthAuthenticators[providerId] = authenticator
 	}
@@ -117,7 +115,7 @@ func (w *wgPortal) setupExternalAuthProviders(ctx context.Context) error {
 		providerId := strings.ToLower(providerCfg.ProviderName)
 
 		if _, exists := w.oauthAuthenticators[providerId]; exists {
-			return errors.Errorf("auth provider with name %s is already registerd", providerId)
+			return fmt.Errorf("auth provider with name %s is already registerd", providerId)
 		}
 
 		redirectUrl := *extUrl
@@ -125,7 +123,7 @@ func (w *wgPortal) setupExternalAuthProviders(ctx context.Context) error {
 
 		authenticator, err := authentication.NewPlainOauthAuthenticator(ctx, redirectUrl.String(), providerCfg)
 		if err != nil {
-			return errors.WithMessagef(err, "failed to setup oauth authentication provider %s", providerId)
+			return fmt.Errorf("failed to setup oauth authentication provider %s: %w", providerId, err)
 		}
 		w.oauthAuthenticators[providerId] = authenticator
 	}
@@ -134,12 +132,12 @@ func (w *wgPortal) setupExternalAuthProviders(ctx context.Context) error {
 		providerId := strings.ToLower(providerCfg.URL)
 
 		if _, exists := w.ldapAuthenticators[providerId]; exists {
-			return errors.Errorf("auth provider with name %s is already registerd", providerId)
+			return fmt.Errorf("auth provider with name %s is already registerd", providerId)
 		}
 
 		authenticator, err := authentication.NewLdapAuthenticator(ctx, providerCfg)
 		if err != nil {
-			return errors.WithMessagef(err, "failed to setup ldap authentication provider %s", providerId)
+			return fmt.Errorf("failed to setup ldap authentication provider %s: %w", providerId, err)
 		}
 		w.ldapAuthenticators[providerId] = authenticator
 	}
@@ -474,21 +472,24 @@ func (w *wgPortal) findAndSortInterfaces(options *interfaceSearchOptions) ([]*mo
 	}
 
 	// filter in place
-	n := 0
-	filterStr := strings.ToLower(options.filter)
-	for _, iface := range interfaces {
-		if options.typ != "" && iface.Type != options.typ {
-			continue
-		}
+	if options.filter != "" {
+		n := 0
+		filterStr := strings.ToLower(options.filter)
+		for _, iface := range interfaces {
+			if options.typ != "" && iface.Type != options.typ {
+				continue
+			}
 
-		if strings.Contains(strings.ToLower(string(iface.Identifier)), filterStr) {
-			interfaces[n] = iface
-			n++
+			if strings.Contains(strings.ToLower(string(iface.Identifier)), filterStr) {
+				interfaces[n] = iface
+				n++
+			}
+			if strings.Contains(strings.ToLower(iface.DisplayName), filterStr) {
+				interfaces[n] = iface
+				n++
+			}
 		}
-		if strings.Contains(strings.ToLower(iface.DisplayName), filterStr) {
-			interfaces[n] = iface
-			n++
-		}
+		interfaces = interfaces[:n]
 	}
 
 	// sort
@@ -595,34 +596,216 @@ func (w *wgPortal) GetInterfaceWgQuickConfig(ctx context.Context, identifier mod
 	return config, nil
 }
 
-func (w *wgPortal) ApplyGlobalSettings(context.Context, model.InterfaceIdentifier) error {
-	//TODO implement me
-	panic("implement me")
+func (w *wgPortal) ApplyGlobalSettings(ctx context.Context, identifier model.InterfaceIdentifier) error {
+	err := w.wg.ApplyDefaultConfigs(identifier)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (w *wgPortal) GetImportableInterfaces(ctx context.Context, options *interfaceSearchOptions) ([]model.ImportableInterface, error) {
-	//TODO implement me
-	panic("implement me")
+func (w *wgPortal) GetImportableInterfaces(ctx context.Context) ([]model.ImportableInterface, error) {
+	interfaces, err := w.wg.GetImportableInterfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	importableInterfaces := make([]model.ImportableInterface, len(interfaces))
+	for i := range interfaces {
+		importableInterfaces[i] = *interfaces[i]
+	}
+
+	return importableInterfaces, nil
 }
 
-func (w *wgPortal) ImportInterface(ctx context.Context, importableInterface *model.ImportableInterface, options *importOptions) (*model.Interface, error) {
-	//TODO implement me
-	panic("implement me")
+func (w *wgPortal) ImportInterface(ctx context.Context, identifier model.InterfaceIdentifier, options *importOptions) (*model.Interface, error) {
+	interfaces, err := w.wg.GetImportableInterfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	var importableInterface *model.ImportableInterface
+	for _, i := range interfaces {
+		if i.Interface.Identifier != identifier {
+			continue
+		}
+
+		importableInterface = i
+		break
+	}
+	if importableInterface == nil {
+		return nil, fmt.Errorf("no such importable interface: %s", identifier)
+	}
+
+	err = w.wg.ImportInterface(importableInterface)
+	if err != nil {
+		return nil, err
+	}
+
+	importedInterface, err := w.wg.GetInterface(identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	return importedInterface, nil
 }
 
 func (w *wgPortal) GetPeers(ctx context.Context, options *peerSearchOptions) ([]model.Peer, error) {
-	//TODO implement me
-	panic("implement me")
+	if options == nil {
+		options = PeerSearchOptions()
+	}
+
+	peers, err := w.findAndSortPeers(options)
+	if err != nil {
+		return nil, err
+	}
+
+	var filteredAndPagedPeers []model.Peer
+
+	// page
+	if options.pageSize != PageSizeAll {
+		if options.pageOffset >= len(peers) {
+			return nil, errors.New("invalid page offset")
+		}
+
+		filteredAndPagedPeers = make([]model.Peer, 0, options.pageSize)
+		for i := options.pageOffset; i < options.pageOffset+options.pageSize; i++ {
+			if i >= len(peers) {
+				break // check if we reached the end
+			}
+			filteredAndPagedPeers = append(filteredAndPagedPeers, *peers[i])
+		}
+	} else {
+		filteredAndPagedPeers = make([]model.Peer, len(peers))
+		for i := range peers {
+			filteredAndPagedPeers[i] = *peers[i]
+		}
+	}
+
+	return filteredAndPagedPeers, nil
 }
 
 func (w *wgPortal) GetPeerIds(ctx context.Context, options *peerSearchOptions) ([]model.PeerIdentifier, error) {
-	//TODO implement me
-	panic("implement me")
+	if options == nil {
+		options = PeerSearchOptions()
+	}
+
+	peers, err := w.findAndSortPeers(options)
+	if err != nil {
+		return nil, err
+	}
+
+	var filteredAndPagedPeerIds []model.PeerIdentifier
+
+	// page
+	if options.pageSize != PageSizeAll {
+		if options.pageOffset >= len(peers) {
+			return nil, errors.New("invalid page offset")
+		}
+
+		filteredAndPagedPeerIds = make([]model.PeerIdentifier, 0, options.pageSize)
+		for i := options.pageOffset; i < options.pageOffset+options.pageSize; i++ {
+			if i >= len(peers) {
+				break // check if we reached the end
+			}
+			filteredAndPagedPeerIds = append(filteredAndPagedPeerIds, peers[i].Identifier)
+		}
+	} else {
+		filteredAndPagedPeerIds = make([]model.PeerIdentifier, len(peers))
+		for i := range peers {
+			filteredAndPagedPeerIds[i] = peers[i].Identifier
+		}
+	}
+
+	return filteredAndPagedPeerIds, nil
+}
+
+func (w *wgPortal) findAndSortPeers(options *peerSearchOptions) ([]*model.Peer, error) {
+	var peers []*model.Peer
+	var err error
+
+	// find
+	switch {
+	case options.interfaceFilter != "" && options.userFilter != "":
+		peers, err = w.wg.GetPeersForUser(options.userFilter) // search by user, after that filter by interface
+		n := 0
+		for _, peer := range peers {
+			if peer.Interface.Identifier == options.interfaceFilter {
+				peers[n] = peer
+				n++
+			}
+		}
+		peers = peers[:n]
+	case options.interfaceFilter != "":
+		peers, err = w.wg.GetPeers(options.interfaceFilter)
+	case options.userFilter != "":
+		peers, err = w.wg.GetPeersForUser(options.userFilter)
+	default:
+		return nil, fmt.Errorf("specify at least interface or user filter")
+	}
+
+	// filter
+	if options.filter != "" {
+		n := 0
+		filterStr := strings.ToLower(options.filter)
+		for _, peer := range peers {
+			if strings.Contains(strings.ToLower(string(peer.Identifier)), filterStr) {
+				peers[n] = peer
+				n++
+			}
+			if strings.Contains(strings.ToLower(peer.DisplayName), filterStr) {
+				peers[n] = peer
+				n++
+			}
+			if strings.Contains(strings.ToLower(peer.PublicKey), filterStr) {
+				peers[n] = peer
+				n++
+			}
+			if strings.Contains(strings.ToLower(peer.Interface.AddressStr.GetValue()), filterStr) {
+				peers[n] = peer
+				n++
+			}
+		}
+		peers = peers[:n]
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to load peers from manager: %w", err)
+	}
+
+	// sort
+	sort.Slice(peers, func(i, j int) bool {
+		sortRes := false
+		switch strings.ToLower(options.sortBy) {
+		case "displayname", "name", "display_name":
+			sortRes = peers[i].DisplayName < peers[j].DisplayName
+		case "publickey":
+			sortRes = peers[i].PublicKey < peers[j].PublicKey
+		default:
+			sortRes = peers[i].Identifier < peers[j].Identifier
+		}
+
+		if options.sortDirection == SortDesc {
+			sortRes = !sortRes
+		}
+
+		return sortRes
+	})
+	return peers, nil
 }
 
 func (w *wgPortal) CreatePeer(ctx context.Context, peer *model.Peer) (*model.Peer, error) {
-	//TODO implement me
-	panic("implement me")
+	_, err := w.wg.GetPeer(peer.Identifier)
+	if err != nil && err != wireguard.ErrPeerNotFound {
+		return nil, err
+	}
+
+	err = w.wg.SavePeers(peer)
+	if err != nil {
+		return nil, err
+	}
+
+	return peer, nil
 }
 
 func (w *wgPortal) PrepareNewPeer(ctx context.Context, identifier model.InterfaceIdentifier) (*model.Peer, error) {
@@ -631,26 +814,64 @@ func (w *wgPortal) PrepareNewPeer(ctx context.Context, identifier model.Interfac
 }
 
 func (w *wgPortal) UpdatePeer(ctx context.Context, peer *model.Peer) (*model.Peer, error) {
-	//TODO implement me
-	panic("implement me")
+	_, err := w.wg.GetPeer(peer.Identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	err = w.wg.SavePeers(peer)
+	if err != nil {
+		return nil, err
+	}
+
+	return peer, nil
 }
 
 func (w *wgPortal) DeletePeer(ctx context.Context, identifier model.PeerIdentifier) error {
-	//TODO implement me
-	panic("implement me")
+	err := w.wg.RemovePeer(identifier)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-func (w *wgPortal) GetPeerQrCode(ctx context.Context, peer *model.Peer) (io.Reader, error) {
-	//TODO implement me
-	panic("implement me")
+func (w *wgPortal) GetPeerQrCode(ctx context.Context, identifier model.PeerIdentifier) (io.Reader, error) {
+	config, err := w.GetPeerWgQuickConfig(ctx, identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	var configStr string
+	if b, err := io.ReadAll(config); err == nil {
+		configStr = string(b)
+	} else {
+		return nil, err
+	}
+
+	png, err := qrcode.Encode(configStr, qrcode.Low, 250)
+	if err != nil {
+		return nil, err
+	}
+
+	return bytes.NewBuffer(png), nil
 }
 
-func (w *wgPortal) GetPeerWgQuickConfig(ctx context.Context, peer *model.Peer) (io.Reader, error) {
-	//TODO implement me
-	panic("implement me")
+func (w *wgPortal) GetPeerWgQuickConfig(ctx context.Context, identifier model.PeerIdentifier) (io.Reader, error) {
+	peer, err := w.wg.GetPeer(identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	config, err := w.wg.GetPeerConfig(peer)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
 }
 
 func (w *wgPortal) SendWgQuickConfigMail(ctx context.Context, options *mailOptions) error {
 	//TODO implement me
-	panic("implement me")
+	return fmt.Errorf("UNIMPLEMENTED")
 }

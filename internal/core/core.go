@@ -24,8 +24,8 @@ type WgPortal interface {
 	GetInterfaceWgQuickConfig(context.Context, model.InterfaceIdentifier) (io.Reader, error)
 	ApplyGlobalSettings(context.Context, model.InterfaceIdentifier) error
 
-	GetImportableInterfaces(context.Context, *interfaceSearchOptions) ([]model.ImportableInterface, error)
-	ImportInterface(context.Context, *model.ImportableInterface, *importOptions) (*model.Interface, error)
+	GetImportableInterfaces(context.Context) ([]model.ImportableInterface, error)
+	ImportInterface(context.Context, model.InterfaceIdentifier, *importOptions) (*model.Interface, error)
 
 	GetPeers(context.Context, *peerSearchOptions) ([]model.Peer, error)
 	GetPeerIds(context.Context, *peerSearchOptions) ([]model.PeerIdentifier, error)
@@ -33,8 +33,8 @@ type WgPortal interface {
 	PrepareNewPeer(context.Context, model.InterfaceIdentifier) (*model.Peer, error)
 	UpdatePeer(context.Context, *model.Peer) (*model.Peer, error)
 	DeletePeer(context.Context, model.PeerIdentifier) error
-	GetPeerQrCode(context.Context, *model.Peer) (io.Reader, error)
-	GetPeerWgQuickConfig(context.Context, *model.Peer) (io.Reader, error)
+	GetPeerQrCode(context.Context, model.PeerIdentifier) (io.Reader, error)
+	GetPeerWgQuickConfig(context.Context, model.PeerIdentifier) (io.Reader, error)
 
 	SendWgQuickConfigMail(context.Context, *mailOptions) error
 }
