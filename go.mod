@@ -13,6 +13,7 @@ require (
 	github.com/toorop/gin-logrus v0.0.0-20210225092905-2c785434f26f
 	github.com/urfave/cli/v2 v2.4.0
 	github.com/vishvananda/netlink v1.1.0
+	github.com/xhit/go-simple-mail/v2 v2.11.0
 	golang.org/x/crypto v0.0.0-20220331220935-ae2d96664a29
 	golang.org/x/oauth2 v0.0.0-20220309155454-6242fa91716a
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20220330030906-9490840b0b01
@@ -35,6 +36,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-playground/validator/v10 v10.10.1 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
+	github.com/go-test/deep v1.0.8 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.0.0-20170517235910-f1bb20e5a188 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -63,6 +65,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
+	github.com/toorop/go-dkim v0.0.0-20201103131630-e1cd1a0a5208 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	github.com/vishvananda/netns v0.0.0-20211101163701-50045581ed74 // indirect
 	golang.org/x/net v0.0.0-20220403103023-749bd193bc2b // indirect

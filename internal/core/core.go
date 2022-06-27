@@ -37,6 +37,11 @@ type WgPortal interface {
 	GetPeerWgQuickConfig(context.Context, model.PeerIdentifier) (io.Reader, error)
 
 	SendWgQuickConfigMail(context.Context, *mailOptions) error
+
+	GetExternalLoginProviders(ctx context.Context) []model.LoginProviderInfo
+	PlainLogin(ctx context.Context, username, password string) (*model.User, error)
+	OauthLoginStep1(ctx context.Context, providerId string) (authCodeUrl, state, nonce string, err error)
+	OauthLoginStep2(ctx context.Context, providerId, nonce, code string) (*model.User, error)
 }
 
 // region user-options

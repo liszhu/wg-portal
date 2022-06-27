@@ -10,6 +10,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+type RegistrationAuthenticator interface {
+	RegistrationEnabled() bool
+}
+
 type LdapAuthenticator interface {
 	PlainAuthenticator
 	GetAllUserInfos(ctx context.Context) ([]map[string]interface{}, error)

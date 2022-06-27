@@ -13,6 +13,7 @@ NPMCMD=npm
 all: dep build
 
 mocks: # depends on https://github.com/vektra/mockery
+	cd internal/mail; $(MOCKERYCMD) --name Manager
 	cd internal/user; $(MOCKERYCMD) --name Manager
 	cd internal/wireguard; $(MOCKERYCMD) --name Manager
 	cd internal/lowlevel; $(MOCKERYCMD) --all
