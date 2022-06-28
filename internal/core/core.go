@@ -10,12 +10,14 @@ import (
 type WgPortal interface {
 	RunBackgroundTasks(context.Context)
 
+	GetUser(context.Context, model.UserIdentifier) (*model.User, error)
 	GetUsers(context.Context, *userSearchOptions) (Paginator[*model.User], error)
 	GetUserIds(context.Context, *userSearchOptions) (Paginator[model.UserIdentifier], error)
 	CreateUser(context.Context, *model.User, *userCreateOptions) (*model.User, error)
 	UpdateUser(context.Context, *model.User, *userUpdateOptions) (*model.User, error)
 	DeleteUser(context.Context, model.UserIdentifier, *userDeleteOptions) error
 
+	GetInterface(context.Context, model.InterfaceIdentifier) (*model.Interface, error)
 	GetInterfaces(context.Context, *interfaceSearchOptions) (Paginator[*model.Interface], error)
 	CreateInterface(context.Context, *model.Interface) (*model.Interface, error)
 	UpdateInterface(context.Context, *model.Interface) (*model.Interface, error)
@@ -27,6 +29,7 @@ type WgPortal interface {
 	GetImportableInterfaces(context.Context) (Paginator[*model.ImportableInterface], error)
 	ImportInterface(context.Context, model.InterfaceIdentifier, *importOptions) (*model.Interface, error)
 
+	GetPeer(context.Context, model.PeerIdentifier) (*model.Peer, error)
 	GetPeers(context.Context, *peerSearchOptions) (Paginator[*model.Peer], error)
 	GetPeerIds(context.Context, *peerSearchOptions) (Paginator[model.PeerIdentifier], error)
 	CreatePeer(context.Context, *model.Peer) (*model.Peer, error)

@@ -155,6 +155,15 @@ func (w *wgPortal) RunBackgroundTasks(ctx context.Context) {
 	logrus.Info("Finished background tasks")
 }
 
+func (w *wgPortal) GetUser(ctx context.Context, identifier model.UserIdentifier) (*model.User, error) {
+	userEntry, err := w.users.GetUser(identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	return userEntry, nil
+}
+
 func (w *wgPortal) GetUsers(ctx context.Context, options *userSearchOptions) (Paginator[*model.User], error) {
 	if options == nil {
 		options = UserSearchOptions()
@@ -382,6 +391,15 @@ func (w *wgPortal) DeleteUser(ctx context.Context, identifier model.UserIdentifi
 	return nil
 }
 
+func (w *wgPortal) GetInterface(ctx context.Context, identifier model.InterfaceIdentifier) (*model.Interface, error) {
+	iface, err := w.wg.GetInterface(identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	return iface, nil
+}
+
 func (w *wgPortal) GetInterfaces(ctx context.Context, options *interfaceSearchOptions) (Paginator[*model.Interface], error) {
 	if options == nil {
 		options = InterfaceSearchOptions()
@@ -562,6 +580,15 @@ func (w *wgPortal) ImportInterface(ctx context.Context, identifier model.Interfa
 	}
 
 	return importedInterface, nil
+}
+
+func (w *wgPortal) GetPeer(ctx context.Context, identifier model.PeerIdentifier) (*model.Peer, error) {
+	peer, err := w.wg.GetPeer(identifier)
+	if err != nil {
+		return nil, err
+	}
+
+	return peer, nil
 }
 
 func (w *wgPortal) GetPeers(ctx context.Context, options *peerSearchOptions) (Paginator[*model.Peer], error) {

@@ -10,6 +10,7 @@ var ErrNoMorePage = fmt.Errorf("no more page")
 const PageSizeAll = 0
 
 type Paginator[T any] interface {
+	TotalLength() int
 	Size(size int) Paginator[T]
 	Sort(less func(a, b T) bool) Paginator[T]
 	Paginate(offset int) ([]T, error)
@@ -25,6 +26,11 @@ func NewInMemoryPaginator[T any](elements []T) *inMemoryPaginator[T] {
 		pageSize: PageSizeAll,
 		elements: elements,
 	}
+}
+
+// TotalLength returns the element count stored in the current Paginator instance.
+func (p *inMemoryPaginator[T]) TotalLength() int {
+	return len(p.elements)
 }
 
 // Size overrides the default size (PageSizeAll) of the current Paginator instance.

@@ -41,7 +41,7 @@ type SessionData struct {
 	Firstname  string
 	Lastname   string
 	Email      string
-	DeviceName string
+	DeviceName model.InterfaceIdentifier
 
 	SortedBy      map[string]string
 	SortDirection map[string]string

@@ -1,11 +1,14 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
+	"github.com/h44z/wg-portal/internal/core"
+	"github.com/h44z/wg-portal/internal/model"
+
 	"github.com/gin-gonic/gin"
-	"github.com/h44z/wg-portal/internal/common"
 	"github.com/h44z/wg-portal/internal/users"
 	"github.com/pkg/errors"
 )
@@ -22,8 +25,8 @@ func (s *Server) GetHandleError(c *gin.Context, code int, message, details strin
 		"Route":       c.Request.URL.Path,
 		"Session":     GetSessionData(c),
 		"Static":      s.getStaticData(),
-		"Device":      s.peers.GetDevice(currentSession.DeviceName),
-		"DeviceNames": s.GetDeviceNames(),
+		"Device":      s.backend.GetInterface(c.Request.Context(), currentSession.DeviceName),
+		"DeviceNames": s.backend.GetInterfaces(c.Request.Context(), nil),
 	})
 }
 
@@ -35,8 +38,8 @@ func (s *Server) GetIndex(c *gin.Context) {
 		"Alerts":      GetFlashes(c),
 		"Session":     currentSession,
 		"Static":      s.getStaticData(),
-		"Device":      s.peers.GetDevice(currentSession.DeviceName),
-		"DeviceNames": s.GetDeviceNames(),
+		"Device":      s.backend.GetInterface(c.Request.Context(), currentSession.DeviceName),
+		"DeviceNames": s.backend.GetInterfaces(c.Request.Context(), nil),
 	})
 }
 
@@ -78,11 +81,13 @@ func (s *Server) GetAdminIndex(c *gin.Context) {
 
 	deviceName := c.Query("device")
 	if deviceName != "" {
-		if !common.ListContains(s.wg.Cfg.DeviceNames, deviceName) {
+		interfaces, err := s.backend.GetInterfaces(c.Request.Context(), core.InterfaceSearchOptions().WithFilter(deviceName))
+		if err != nil || interfaces.TotalLength() == 0 {
 			s.GetHandleError(c, http.StatusInternalServerError, "device selection error", "no such device")
 			return
 		}
-		currentSession.DeviceName = deviceName
+
+		currentSession.DeviceName = model.InterfaceIdentifier(deviceName)
 
 		if err := UpdateSessionData(c, currentSession); err != nil {
 			s.GetHandleError(c, http.StatusInternalServerError, "device selection error", "failed to save session")
@@ -92,19 +97,49 @@ func (s *Server) GetAdminIndex(c *gin.Context) {
 		return
 	}
 
-	device := s.peers.GetDevice(currentSession.DeviceName)
-	users := s.peers.GetFilteredAndSortedPeers(currentSession.DeviceName, currentSession.SortedBy["peers"], currentSession.SortDirection["peers"], currentSession.Search["peers"])
+	peers, err := s.backend.GetPeers(c.Request.Context(),
+		core.PeerSearchOptions().WithFilter(currentSession.Search["peers"]).WithInterface(currentSession.DeviceName))
+	if err != nil {
+		s.GetHandleError(c, http.StatusInternalServerError, "peer selection error", "failed to search peers")
+		return
+	}
+
+	users := s.peers.GetFilteredAndSortedPeers(currentSession.DeviceName, currentSession.SortedBy["peers"], currentSession.SortDirection["peers"])
 
 	c.HTML(http.StatusOK, "admin_index.html", gin.H{
-		"Route":       c.Request.URL.Path,
-		"Alerts":      GetFlashes(c),
-		"Session":     currentSession,
-		"Static":      s.getStaticData(),
-		"Peers":       users,
+		"Route":   c.Request.URL.Path,
+		"Alerts":  GetFlashes(c),
+		"Session": currentSession,
+		"Static":  s.getStaticData(),
+		"Peers": peers.Sort(func(a, b *model.Peer) bool {
+			var sortValueLeft string
+			var sortValueRight string
+
+			switch currentSession.SortedBy["peers"] {
+			case "id":
+				sortValueLeft = string(a.Identifier)
+				sortValueRight = string(b.Identifier)
+			case "pubKey":
+				sortValueLeft = a.PublicKey
+				sortValueRight = b.PublicKey
+			case "ip":
+				sortValueLeft = a.Interface.AddressStr.GetValue()
+				sortValueRight = b.Interface.AddressStr.GetValue()
+			case "endpoint":
+				sortValueLeft = a.Endpoint.GetValue()
+				sortValueRight = b.Endpoint.GetValue()
+			}
+
+			if currentSession.SortDirection["peers"] == "asc" {
+				return sortValueLeft < sortValueRight
+			} else {
+				return sortValueLeft > sortValueRight
+			}
+		}),
 		"TotalPeers":  len(s.peers.GetAllPeers(currentSession.DeviceName)),
 		"Users":       s.users.GetUsers(),
-		"Device":      device,
-		"DeviceNames": s.GetDeviceNames(),
+		"Device":      s.backend.GetInterface(c.Request.Context(), currentSession.DeviceName),
+		"DeviceNames": s.backend.GetInterfaces(c.Request.Context(), nil),
 	})
 }
 
@@ -194,8 +229,12 @@ func (s *Server) setFormInSession(c *gin.Context, formData interface{}) (Session
 	return currentSession, nil
 }
 
-func (s *Server) isUserStillValid(email string) bool {
-	if s.users.GetUser(email) == nil {
+func (s *Server) isUserStillValid(id model.UserIdentifier) bool {
+	user, err := s.backend.GetUser(context.Background(), id)
+	if err != nil {
+		return false
+	}
+	if user.IsDisabled() {
 		return false
 	}
 	return true
