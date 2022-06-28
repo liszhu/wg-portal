@@ -2,77 +2,148 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"io/ioutil"
-	"log"
-	"mime"
 	"net/http"
 	"os"
-	"runtime"
+	"strings"
 	"time"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/memstore"
 	"github.com/gin-gonic/gin"
+	"github.com/h44z/wg-portal/internal"
+	"github.com/h44z/wg-portal/internal/core"
 	"github.com/sirupsen/logrus"
 	ginlogrus "github.com/toorop/gin-logrus"
 )
 
 type webServer struct {
-	server *gin.Engine
+	cfg      *Config
+	server   *gin.Engine
+	hostname string
+
+	authenticationApiHandler
+	restApiHandler
+	frontendApiHandler
 }
 
-func NewServer(authMiddleware gin.HandlerFunc) (*webServer, error) {
-	s := &webServer{}
+func NewServer(cfg *Config, backend core.WgPortal) (*webServer, error) {
+	sessionStore := GinSessionStore{sessionIdentifier: "wgPortalSession"}
+	s := &webServer{
+		cfg:                      cfg,
+		authenticationApiHandler: authenticationApiHandler{backend: backend, session: sessionStore},
+		restApiHandler:           restApiHandler{backend: backend},
+		frontendApiHandler:       frontendApiHandler{backend: backend},
+	}
 
+	s.setupLogging()
+	s.setupHostname()
+	s.setupGin()
+	s.setupAuthenticationApiRoutes()
+	s.setupFrontendApiRoutes()
+	s.setupRestApiRoutes()
+
+	return s, nil
+}
+
+func (s *webServer) setupLogging() {
+	switch s.cfg.Backend.Core.LogLevel {
+	case "trace":
+		logrus.SetLevel(logrus.TraceLevel)
+	case "debug":
+		logrus.SetLevel(logrus.DebugLevel)
+	case "info", "normal":
+		logrus.SetLevel(logrus.InfoLevel)
+	case "warning", "warn":
+		logrus.SetLevel(logrus.WarnLevel)
+	case "error", "fatal", "critical":
+		logrus.SetLevel(logrus.ErrorLevel)
+	}
+}
+
+func (s *webServer) setupHostname() {
 	hostname, err := os.Hostname()
 	if err != nil {
 		hostname = "apiserver"
 	}
-	hostname += ", version 1.0"
+	s.hostname = fmt.Sprintf("%s, version %s", hostname, internal.Version)
+}
 
-	// Setup http server
+func (s *webServer) setupGin() {
 	gin.SetMode(gin.ReleaseMode)
 	gin.DefaultWriter = ioutil.Discard
 	s.server = gin.New()
-	if logrus.GetLevel() == logrus.TraceLevel {
+	if s.cfg.Frontend.GinDebug {
 		gin.SetMode(gin.DebugMode)
 		s.server.Use(ginlogrus.Logger(logrus.StandardLogger()))
 	}
 	s.server.Use(gin.Recovery()).Use(func(c *gin.Context) {
-		c.Writer.Header().Set("X-Served-By", hostname)
+		c.Writer.Header().Set("X-Served-By", s.hostname)
 		c.Next()
 	})
-	s.server.Use(authMiddleware)
+	cookieStore := memstore.NewStore([]byte(s.cfg.Frontend.SessionSecret))
+	cookieStore.Options(sessions.Options{
+		Path:     "/",
+		MaxAge:   86400, // auth session is valid for 1 day
+		Secure:   strings.HasPrefix(s.cfg.Frontend.ExternalUrl, "https"),
+		HttpOnly: true,
+	})
+	s.server.Use(sessions.Sessions("authsession", cookieStore))
 
 	// Serve static files
 	s.server.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusMovedPermanently, "/app")
 	})
+	s.server.GET("/favicon.ico", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/app/favicon.ico")
+	})
 	s.server.StaticFS("/app", http.FS(fsMust(fs.Sub(frontendStatics, "frontend-dist"))))
-
-	// Fix for Windows systems (See: https://github.com/golang/go/issues/32350)
-	if runtime.GOOS == "windows" {
-		if err := mime.AddExtensionType(".js", "application/javascript"); err != nil {
-			log.Fatalf("could not add mime extension type: %v", err)
-		}
-	}
-
-	return s, nil
-
 }
 
-func (s *webServer) Run(ctx context.Context, listenAddress string) {
-	logrus.Infof("starting web service on %s", listenAddress)
+func (s *webServer) setupAuthenticationApiRoutes() {
+	apiGroup := s.server.Group("/auth", s.corsMiddleware())
+
+	apiGroup.GET("/providers", s.authenticationApiHandler.GetExternalLoginProviders())
+	apiGroup.GET("/login/:provider/init", s.authenticationApiHandler.GetOauthInitiate())
+	apiGroup.GET("/login/:provider/callback", s.authenticationApiHandler.GetOauthCallback())
+
+	apiGroup.POST("/login", s.authenticationApiHandler.PostLogin())
+	apiGroup.POST("/logout", s.authenticationApiHandler.PostLogout())
+}
+
+func (s *webServer) setupRestApiRoutes() {
+	apiGroup := s.server.Group("/rest/api/v1", s.corsMiddleware())
+
+	apiGroup.GET("/ping", s.restApiHandler.getPing())
+}
+
+func (s *webServer) setupFrontendApiRoutes() {
+	apiGroup := s.server.Group("/frontend/api/v1", s.corsMiddleware())
+
+	apiGroup.GET("/ping", s.frontendApiHandler.getPing())
+}
+
+func (s *webServer) corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+	}
+}
+
+func (s *webServer) Run(ctx context.Context) {
+	logrus.Infof("starting web service on %s", s.cfg.Frontend.ListeningAddress)
 
 	// Run web service
 	srv := &http.Server{
-		Addr:    listenAddress,
+		Addr:    s.cfg.Frontend.ListeningAddress,
 		Handler: s.server,
 	}
 
 	srvContext, cancelFn := context.WithCancel(ctx)
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			logrus.Infof("web service on %s exited: %v", listenAddress, err)
+			logrus.Infof("web service on %s exited: %v", s.cfg.Frontend.ListeningAddress, err)
 			cancelFn()
 		}
 	}()

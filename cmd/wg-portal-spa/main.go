@@ -2,26 +2,30 @@ package main
 
 import (
 	"context"
-	"os"
-	"os/signal"
 	"syscall"
 
-	"github.com/gin-gonic/gin"
+	"github.com/h44z/wg-portal/internal"
+	"github.com/h44z/wg-portal/internal/core"
 	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	ctx := signalAwareContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
+	ctx := internal.SignalAwareContext(context.Background(), syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM)
 
 	logrus.Infof("Starting web portal...")
 
-	noAuth := func(c *gin.Context) {}
-	webService, err := NewServer(noAuth)
+	cfg, err := LoadConfig()
+	internal.AssertNoError(err)
+
+	backend, err := core.NewWgPortal(&cfg.Backend)
+	internal.AssertNoError(err)
+
+	webService, err := NewServer(cfg, backend)
 	if err != nil {
 		panic(err)
 	}
 
-	webService.Run(ctx, ":5000")
+	webService.Run(ctx)
 
 	// wait until context gets cancelled
 	<-ctx.Done()
@@ -30,31 +34,27 @@ func main() {
 
 }
 
-// signalAwareContext returns a context that gets closed once a given signal is retrieved.
-// By default, the following signals are handled: syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP
-func signalAwareContext(ctx context.Context, sig ...os.Signal) context.Context {
-	c := make(chan os.Signal, 1)
-	if len(sig) == 0 {
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-	} else {
+func LoadConfig() (*Config, error) {
+	backendCfg, err := core.LoadConfig()
+	internal.AssertNoError(err)
 
-		signal.Notify(c, sig...)
+	cfg := &Config{
+		Backend: *backendCfg,
 	}
-	signalCtx, cancel := context.WithCancel(ctx)
 
-	// Attach signal handlers to context
-	go func() {
-		select {
-		case <-ctx.Done():
-			// normal shutdown, quit go routine
-		case <-c:
-			cancel() // cancel the context
-		}
+	// default config
 
-		// cleanup
-		signal.Stop(c)
-		close(c)
-	}()
+	cfg.Frontend.ListeningAddress = ":5000"
+	cfg.Frontend.GinDebug = true
 
-	return signalCtx
+	/*cfgFileName := "config.yml"
+	if envCfgFileName := os.Getenv("WG_PORTAL_CONFIG"); envCfgFileName != "" {
+		cfgFileName = envCfgFileName
+	}
+
+	if err := loadConfigFile(cfg, cfgFileName); err != nil {
+		return nil, fmt.Errorf("failed to load config from yaml: %w", err)
+	}*/
+
+	return cfg, nil
 }
