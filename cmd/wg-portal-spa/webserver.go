@@ -106,11 +106,12 @@ func (s *webServer) setupAuthenticationApiRoutes() {
 	apiGroup := s.server.Group("/auth", s.corsMiddleware())
 
 	apiGroup.GET("/providers", s.authenticationApiHandler.GetExternalLoginProviders())
+	apiGroup.GET("/session", s.authenticationApiHandler.GetSessionInfo())
 	apiGroup.GET("/login/:provider/init", s.authenticationApiHandler.GetOauthInitiate())
 	apiGroup.GET("/login/:provider/callback", s.authenticationApiHandler.GetOauthCallback())
 
 	apiGroup.POST("/login", s.authenticationApiHandler.PostLogin())
-	apiGroup.POST("/logout", s.authenticationApiHandler.PostLogout())
+	apiGroup.GET("/logout", s.authenticationApiHandler.GetLogout())
 }
 
 func (s *webServer) setupRestApiRoutes() {
@@ -120,7 +121,8 @@ func (s *webServer) setupRestApiRoutes() {
 }
 
 func (s *webServer) setupFrontendApiRoutes() {
-	apiGroup := s.server.Group("/frontend/api/v1", s.corsMiddleware())
+	apiGroup := s.server.Group("/frontend/api/v1",
+		s.corsMiddleware(), s.authenticationApiHandler.AuthenticationMiddleware(""))
 
 	apiGroup.GET("/ping", s.frontendApiHandler.getPing())
 }

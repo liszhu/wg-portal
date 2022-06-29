@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -21,12 +20,25 @@ func (h *authenticationApiHandler) GetExternalLoginProviders() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		providers := h.backend.GetExternalLoginProviders(c.Request.Context())
 
-		for i := range providers {
-			providers[i].ProviderUrl = fmt.Sprintf("/auth/login/%s/init", providers[i].ID)
-			providers[i].CallbackUrl = fmt.Sprintf("/auth/login/%s/callback", providers[i].ID)
+		c.JSON(http.StatusOK, providers)
+	}
+}
+
+func (h *authenticationApiHandler) GetSessionInfo() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		currentSession := h.session.GetData(c)
+
+		var loggedInUid *string
+		if currentSession.LoggedIn {
+			uid := string(currentSession.UserIdentifier)
+			loggedInUid = &uid
 		}
 
-		c.JSON(http.StatusOK, providers)
+		c.JSON(http.StatusOK, SessionInfoResponse{
+			LoggedIn: currentSession.LoggedIn,
+			IsAdmin:  currentSession.IsAdmin,
+			UserId:   loggedInUid,
+		})
 	}
 }
 
@@ -115,7 +127,7 @@ func (h *authenticationApiHandler) PostLogin() gin.HandlerFunc {
 	}
 }
 
-func (h *authenticationApiHandler) PostLogout() gin.HandlerFunc {
+func (h *authenticationApiHandler) GetLogout() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		currentSession := h.session.GetData(c)
 
