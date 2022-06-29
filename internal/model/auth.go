@@ -3,7 +3,7 @@ package model
 type LoginProvider string
 
 type LoginProviderInfo struct {
-	ID          string
+	Identifier  string
 	Name        string
 	ProviderUrl string
 	CallbackUrl string

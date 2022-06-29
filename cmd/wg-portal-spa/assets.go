@@ -9,3 +9,6 @@ import "embed"
 //go:embed frontend-dist/favicon.png
 //go:embed frontend-dist/favicon-large.png
 var frontendStatics embed.FS
+
+//go:embed frontend_config.js.gotpl
+var frontendJs embed.FS

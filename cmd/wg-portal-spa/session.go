@@ -26,6 +26,7 @@ type SessionData struct {
 	OauthState    string
 	OauthNonce    string
 	OauthProvider string
+	OauthReturnTo string
 }
 
 type SessionStore interface {
@@ -71,6 +72,7 @@ func (g GinSessionStore) DefaultSessionData() SessionData {
 		OauthState:     "",
 		OauthNonce:     "",
 		OauthProvider:  "",
+		OauthReturnTo:  "",
 	}
 }
 

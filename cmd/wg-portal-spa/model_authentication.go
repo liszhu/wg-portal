@@ -6,7 +6,7 @@ type OauthInitiationResponse struct {
 }
 
 type SessionInfoResponse struct {
-	LoggedIn bool
-	IsAdmin  bool    `json:"IsAdmin,omitempty"`
-	UserId   *string `json:"UserId,omitempty"`
+	LoggedIn       bool
+	IsAdmin        bool    `json:"IsAdmin,omitempty"`
+	UserIdentifier *string `json:"UserIdentifier,omitempty"`
 }

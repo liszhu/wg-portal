@@ -26,6 +26,9 @@ build-frontend: dep frontend
 frontend: frontend-dep  # depends on https://nodejs.org
 	cd cmd/wg-portal-spa/frontend; $(NPMCMD) run build
 
+frontend-dev: frontend-dep  # depends on https://nodejs.org
+	cd cmd/wg-portal-spa/frontend; $(NPMCMD) run build-dev
+
 frontend-dep:
 	cd cmd/wg-portal-spa/frontend; $(NPMCMD) install
 

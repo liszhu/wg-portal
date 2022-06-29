@@ -24,18 +24,18 @@ type webServer struct {
 	server   *gin.Engine
 	hostname string
 
-	authenticationApiHandler
-	restApiHandler
-	frontendApiHandler
+	*authenticationApiHandler
+	*restApiHandler
+	*frontendApiHandler
 }
 
 func NewServer(cfg *Config, backend core.WgPortal) (*webServer, error) {
 	sessionStore := GinSessionStore{sessionIdentifier: "wgPortalSession"}
 	s := &webServer{
 		cfg:                      cfg,
-		authenticationApiHandler: authenticationApiHandler{backend: backend, session: sessionStore},
-		restApiHandler:           restApiHandler{backend: backend},
-		frontendApiHandler:       frontendApiHandler{backend: backend},
+		authenticationApiHandler: &authenticationApiHandler{backend: backend, session: sessionStore},
+		restApiHandler:           &restApiHandler{backend: backend},
+		frontendApiHandler:       newFrontendApiHandler(cfg, backend),
 	}
 
 	s.setupLogging()
@@ -87,7 +87,7 @@ func (s *webServer) setupGin() {
 	cookieStore.Options(sessions.Options{
 		Path:     "/",
 		MaxAge:   86400, // auth session is valid for 1 day
-		Secure:   strings.HasPrefix(s.cfg.Frontend.ExternalUrl, "https"),
+		Secure:   strings.HasPrefix(s.cfg.Backend.Core.ExternalUrl, "https"),
 		HttpOnly: true,
 	})
 	s.server.Use(sessions.Sessions("authsession", cookieStore))
@@ -121,10 +121,13 @@ func (s *webServer) setupRestApiRoutes() {
 }
 
 func (s *webServer) setupFrontendApiRoutes() {
+	publicApiGroup := s.server.Group("/frontend/public", s.corsMiddleware())
+	publicApiGroup.GET("/config.js", s.frontendApiHandler.GetFrontendConfigJs())
+
 	apiGroup := s.server.Group("/frontend/api/v1",
 		s.corsMiddleware(), s.authenticationApiHandler.AuthenticationMiddleware(""))
 
-	apiGroup.GET("/ping", s.frontendApiHandler.getPing())
+	apiGroup.GET("/ping", s.frontendApiHandler.GetPing())
 }
 
 func (s *webServer) corsMiddleware() gin.HandlerFunc {

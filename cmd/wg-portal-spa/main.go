@@ -45,6 +45,7 @@ func LoadConfig() (*Config, error) {
 	// default config
 
 	cfg.Frontend.ListeningAddress = ":5000"
+	cfg.Frontend.SessionSecret = "wgPortalSession"
 	cfg.Frontend.GinDebug = true
 
 	/*cfgFileName := "config.yml"

@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/h44z/wg-portal/internal/model"
@@ -35,9 +37,9 @@ func (h *authenticationApiHandler) GetSessionInfo() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, SessionInfoResponse{
-			LoggedIn: currentSession.LoggedIn,
-			IsAdmin:  currentSession.IsAdmin,
-			UserId:   loggedInUid,
+			LoggedIn:       currentSession.LoggedIn,
+			IsAdmin:        currentSession.IsAdmin,
+			UserIdentifier: loggedInUid,
 		})
 	}
 }
@@ -45,16 +47,46 @@ func (h *authenticationApiHandler) GetSessionInfo() gin.HandlerFunc {
 func (h *authenticationApiHandler) GetOauthInitiate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		currentSession := h.session.GetData(c)
+
+		autoRedirect, _ := strconv.ParseBool(c.DefaultQuery("redirect", "false"))
+		returnTo := c.Query("return")
+		provider := c.Param("provider")
+
+		var returnUrl *url.URL
+		var returnParams string
+		redirectToReturn := func() {
+			c.Redirect(http.StatusFound, returnUrl.String()+"?"+returnParams)
+		}
+
+		if returnTo != "" {
+			if u, err := url.Parse(returnTo); err == nil {
+				returnUrl = u
+			}
+			queryParams := returnUrl.Query()
+			queryParams.Set("wgLoginState", "err") // by default, we set the state to error
+			returnUrl.RawQuery = ""                // remove potential query params
+			returnParams = queryParams.Encode()
+		}
+
 		if currentSession.LoggedIn {
-			c.JSON(http.StatusBadRequest, GenericResponse{Message: "already logged in"})
+			if autoRedirect {
+				queryParams := returnUrl.Query()
+				queryParams.Set("wgLoginState", "success")
+				returnParams = queryParams.Encode()
+				redirectToReturn()
+			} else {
+				c.JSON(http.StatusBadRequest, GenericResponse{Message: "already logged in"})
+			}
 			return
 		}
 
-		provider := c.Param("provider")
-
 		authCodeUrl, state, nonce, err := h.backend.OauthLoginStep1(c.Request.Context(), provider)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, GenericResponse{Message: err.Error()})
+			if autoRedirect {
+				redirectToReturn()
+			} else {
+				c.JSON(http.StatusInternalServerError, GenericResponse{Message: err.Error()})
+			}
 			return
 		}
 
@@ -62,20 +94,49 @@ func (h *authenticationApiHandler) GetOauthInitiate() gin.HandlerFunc {
 		authSession.OauthState = state
 		authSession.OauthNonce = nonce
 		authSession.OauthProvider = provider
+		authSession.OauthReturnTo = returnTo
 		h.session.SetData(c, authSession)
 
-		c.JSON(http.StatusOK, OauthInitiationResponse{
-			RedirectUrl: authCodeUrl,
-			State:       state,
-		})
+		if autoRedirect {
+			c.Redirect(http.StatusFound, authCodeUrl)
+		} else {
+			c.JSON(http.StatusOK, OauthInitiationResponse{
+				RedirectUrl: authCodeUrl,
+				State:       state,
+			})
+		}
 	}
 }
 
 func (h *authenticationApiHandler) GetOauthCallback() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		currentSession := h.session.GetData(c)
+
+		var returnUrl *url.URL
+		var returnParams string
+		redirectToReturn := func() {
+			c.Redirect(http.StatusFound, returnUrl.String()+"?"+returnParams)
+		}
+
+		if currentSession.OauthReturnTo != "" {
+			if u, err := url.Parse(currentSession.OauthReturnTo); err == nil {
+				returnUrl = u
+			}
+			queryParams := returnUrl.Query()
+			queryParams.Set("wgLoginState", "err") // by default, we set the state to error
+			returnUrl.RawQuery = ""                // remove potential query params
+			returnParams = queryParams.Encode()
+		}
+
 		if currentSession.LoggedIn {
-			c.JSON(http.StatusBadRequest, GenericResponse{Message: "already logged in"})
+			if returnUrl != nil {
+				queryParams := returnUrl.Query()
+				queryParams.Set("wgLoginState", "success")
+				returnParams = queryParams.Encode()
+				redirectToReturn()
+			} else {
+				c.JSON(http.StatusBadRequest, GenericResponse{Message: "already logged in"})
+			}
 			return
 		}
 
@@ -84,23 +145,42 @@ func (h *authenticationApiHandler) GetOauthCallback() gin.HandlerFunc {
 		oauthState := c.Query("state")
 
 		if provider != currentSession.OauthProvider {
-			c.JSON(http.StatusBadRequest, GenericResponse{Message: "invalid oauth provider"})
+			if returnUrl != nil {
+				redirectToReturn()
+			} else {
+				c.JSON(http.StatusBadRequest, GenericResponse{Message: "invalid oauth provider"})
+			}
 			return
 		}
 		if oauthState != currentSession.OauthState {
-			c.JSON(http.StatusBadRequest, GenericResponse{Message: "invalid oauth state"})
+			if returnUrl != nil {
+				redirectToReturn()
+			} else {
+				c.JSON(http.StatusBadRequest, GenericResponse{Message: "invalid oauth state"})
+			}
 			return
 		}
 
 		user, err := h.backend.OauthLoginStep2(c.Request.Context(), provider, currentSession.OauthNonce, oauthCode)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, GenericResponse{Message: err.Error()})
+			if returnUrl != nil {
+				redirectToReturn()
+			} else {
+				c.JSON(http.StatusUnauthorized, GenericResponse{Message: err.Error()})
+			}
 			return
 		}
 
 		h.setAuthenticatedUser(c, user)
 
-		c.JSON(http.StatusOK, user)
+		if returnUrl != nil {
+			queryParams := returnUrl.Query()
+			queryParams.Set("wgLoginState", "success")
+			returnParams = queryParams.Encode()
+			redirectToReturn()
+		} else {
+			c.JSON(http.StatusOK, user)
+		}
 	}
 }
 
@@ -200,6 +280,7 @@ func (h *authenticationApiHandler) setAuthenticatedUser(c *gin.Context, user *mo
 	currentSession.OauthState = ""
 	currentSession.OauthNonce = ""
 	currentSession.OauthProvider = ""
+	currentSession.OauthReturnTo = ""
 
 	h.session.SetData(c, currentSession)
 }

@@ -1,28 +1,34 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
-</script>
+import {computed, getCurrentInstance, onMounted} from "vue";
+import {authStore} from "./stores/auth";
 
-<script>
-export default {
-  methods: {
-    switchLanguage(lang) {
-      if (this.$i18n.locale !== lang) {
-        localStorage.setItem('wgLang', lang)
-        this.$i18n.locale = lang
-      }
-    }
-  },
-  computed: {
-    languageFlag() {
-      // `this` points to the component instance
-      let lang = this.$i18n.locale.toLowerCase()
-      if (lang === "en") {
-        lang = "us"
-      }
-      return "fi-" + lang
-    }
+const appGlobal = getCurrentInstance().appContext.config.globalProperties
+const auth = authStore()
+
+onMounted(async () => {
+  console.log("Starting WireGuard Portal frontend...")
+
+  await auth.loadProviders()
+
+  console.log("WireGuard Portal ready!")
+})
+
+const switchLanguage = function (lang) {
+  if (appGlobal.$i18n.locale !== lang) {
+    localStorage.setItem('wgLang', lang)
+    appGlobal.$i18n.locale = lang
   }
 }
+
+const languageFlag = computed(() => {
+  // `this` points to the component instance
+  let lang = appGlobal.$i18n.locale.toLowerCase()
+  if (lang === "en") {
+    lang = "us"
+  }
+  return "fi-" + lang
+})
 </script>
 
 <template>
@@ -62,13 +68,14 @@ export default {
               <div class="dropdown-divider"></div>
               <a class="dropdown-item" href="/user/profile"><i class="fas fa-user"></i> {{ $t('menu.profile') }}</a>
               <div class="dropdown-divider"></div>
-              <a class="dropdown-item" href="/auth/logout"><i class="fas fa-sign-out-alt"></i> {{ $t('menu.logout')
+              <a class="dropdown-item" href="#logout" @click.prevent="auth.logout"><i class="fas fa-sign-out-alt"></i> {{ $t('menu.logout')
               }}</a>
             </div>
           </div>
           <div class="nav-item">
-            <a href="/login" class="nav-link"><i class="fas fa-sign-in-alt fa-sm fa-fw me-2"></i>{{ $t('menu.login')
-            }}</a>
+            <RouterLink class="nav-link" :to="{ name: 'login' }">
+              <i class="fas fa-sign-in-alt fa-sm fa-fw me-2"></i>{{ $t('menu.login') }}
+            </RouterLink>
           </div>
         </div>
       </div>

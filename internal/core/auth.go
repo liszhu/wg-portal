@@ -25,7 +25,7 @@ func (w *wgPortal) GetExternalLoginProviders(ctx context.Context) []model.LoginP
 			providerName = provider.ProviderName
 		}
 		authProviders = append(authProviders, model.LoginProviderInfo{
-			ID:          providerId,
+			Identifier:  providerId,
 			Name:        providerName,
 			ProviderUrl: fmt.Sprintf("/auth/login/%s/init", providerId),
 			CallbackUrl: fmt.Sprintf("/auth/login/%s/callback", providerId),
@@ -38,8 +38,8 @@ func (w *wgPortal) GetExternalLoginProviders(ctx context.Context) []model.LoginP
 			providerName = provider.ProviderName
 		}
 		authProviders = append(authProviders, model.LoginProviderInfo{
-			ID:   providerId,
-			Name: providerName,
+			Identifier: providerId,
+			Name:       providerName,
 		})
 	}
 

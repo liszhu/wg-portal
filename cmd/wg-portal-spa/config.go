@@ -12,7 +12,5 @@ type FrontendConfig struct {
 	ListeningAddress string `yaml:"listening_address"`
 	SessionSecret    string `yaml:"session_secret"`
 
-	ExternalUrl string `yaml:"external_url"`
-
 	GinDebug bool `yaml:"gin_debug"`
 }
