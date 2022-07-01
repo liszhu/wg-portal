@@ -59,12 +59,12 @@
     </div>
     <div class="col-lg-4">
       <div class="card border-secondary mb-4" style="min-height: 15rem;">
-        <div class="card-header">{{ $t('home.about-wg.h1') }}</div>
+        <div class="card-header">{{ $t('home.about-portal.h1') }}</div>
         <div class="card-body d-flex flex-column">
-          <h4 class="card-title">{{ $t('home.about-wg.h2') }}</h4>
-          <p class="card-text">{{ $t('home.about-wg.instruct') }}</p>
+          <h4 class="card-title">{{ $t('home.about-portal.h2') }}</h4>
+          <p class="card-text">{{ $t('home.about-portal.instruct') }}</p>
           <a href="https://github.com/h44z/wg-portal/" title="WireGuard Portal" target="_blank"
-            rel="noopener noreferrer" class="mt-auto btn btn-primary btn-sm">{{ $t('home.about-wg.btn') }}</a>
+            rel="noopener noreferrer" class="mt-auto btn btn-primary btn-sm">{{ $t('home.about-portal.btn') }}</a>
         </div>
       </div>
     </div>
