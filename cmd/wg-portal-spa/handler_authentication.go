@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/h44z/wg-portal/internal/model"
 
@@ -204,10 +203,17 @@ func (h *authenticationApiHandler) PostLogin() gin.HandlerFunc {
 			return
 		}
 
-		username := strings.ToLower(c.PostForm("username"))
-		password := c.PostForm("password")
+		var loginData struct {
+			Username string `json:"username" binding:"required,min=2"`
+			Password string `json:"password" binding:"required,min=4"`
+		}
 
-		user, err := h.backend.PlainLogin(c.Request.Context(), username, password)
+		if err := c.ShouldBindJSON(&loginData); err != nil {
+			c.JSON(http.StatusBadRequest, GenericResponse{Message: err.Error()})
+			return
+		}
+
+		user, err := h.backend.PlainLogin(c.Request.Context(), loginData.Username, loginData.Password)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, GenericResponse{Message: "login failed"})
 			return
