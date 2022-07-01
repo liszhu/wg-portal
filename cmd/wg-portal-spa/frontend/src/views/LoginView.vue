@@ -4,7 +4,6 @@ import {computed, ref} from "vue";
 import {authStore} from "../stores/auth";
 import router from '../router/index.js'
 import {notify} from "@kyvg/vue3-notification";
-import {f} from "../../../frontend-dist/assets/index.e083cb71";
 
 const auth = authStore()
 
@@ -17,16 +16,28 @@ const passwordInvalid = computed(() => password.value === "")
 const disableLoginBtn = computed(() => username.value === "" || password.value === "" || loggingIn.value)
 
 const login = function () {
-  console.log("Performing login for user", username.value)
+  console.log("Performing login for user:", username.value)
   loggingIn.value = true
-  auth.login(username.value, password.value).catch(error => {
-    notify({
-      title: "Login failed!",
-      text: "Authentication failed!",
-      type: 'error',
-    })
-    loggingIn.value = false
-  }).then(() => {loggingIn.value = false})
+  auth.Login(username.value, password.value)
+      .then(uid => {
+        notify({
+          title: "Logged in",
+          text: "Authentication succeeded!",
+          type: 'success',
+        })
+        loggingIn.value = false
+        router.push(auth.ReturnUrl)
+      })
+      .catch(error => {
+        notify({
+          title: "Login failed!",
+          text: "Authentication failed!",
+          type: 'error',
+        })
+
+        // delay the user from logging in for a short amount of time
+        setTimeout(() => loggingIn.value = false, 1000);
+      })
 }
 
 const externalLogin = function (provider) {

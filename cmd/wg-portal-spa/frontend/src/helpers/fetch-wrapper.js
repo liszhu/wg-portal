@@ -25,11 +25,10 @@ function request(method) {
 
 function authHeader(url) {
     // return auth header with jwt if user is logged in and request is to the api url
-    const { user } = authStore();
-    const isLoggedIn = !!user?.Identifier;
-    const isApiUrl = url.startsWith(import.meta.env.VITE_API_URL);
-    if (isLoggedIn && isApiUrl) {
-        return { 'X-Frontend-User': `Identifier ${user.Identifier}` };
+    const auth = authStore();
+    const isApiUrl = url.startsWith(WGPORTAL_BACKEND_BASE_URL);
+    if (auth.IsAuthenticated && isApiUrl) {
+        return { 'X-Frontend-User': `Identifier ${auth.UserIdentifier}` };
     } else {
         return {};
     }
@@ -40,10 +39,10 @@ function handleResponse(response) {
         const data = text && JSON.parse(text);
 
         if (!response.ok) {
-            const { user, logout } = authStore();
-            if ([401, 403].includes(response.status) && user) {
+            const auth = authStore();
+            if ([401, 403].includes(response.status) && auth.IsAuthenticated) {
                 // auto logout if 401 Unauthorized or 403 Forbidden response returned from api
-                logout();
+                auth.Logout();
             }
 
             const error = (data && data.message) || response.statusText;

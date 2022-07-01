@@ -49,17 +49,39 @@ router.beforeEach(async (to) => {
   const auth = authStore()
 
   // check if the request was a successful oauth login
-  if ('wgLoginState' in to.query) {
-    let state = to.query['wgLoginState']
+  if ('wgLoginState' in to.query && !auth.IsAuthenticated) {
+    const state = to.query['wgLoginState']
+    const returnUrl = auth.ReturnUrl
     console.log("Oauth login callback:", state)
 
     if (state === "success") {
-      return await auth.loginOauth()
+      try {
+        const uid = await auth.LoadSession()
+        console.log("Oauth login completed for UID:", uid)
+        console.log("Continuing to:", returnUrl)
+
+        notify({
+          title: "Logged in",
+          text: "Authentication suceeded!",
+          type: 'success',
+        })
+
+        auth.ResetReturnUrl()
+        return returnUrl
+      } catch (e) {
+        notify({
+          title: "Login failed!",
+          text: "Oauth session is invalid!",
+          type: 'error',
+        })
+
+        return '/login'
+      }
     } else {
       notify({
         title: "Login failed!",
         text: "Authentication via Oauth failed!",
-        type: 'success',
+        type: 'error',
       })
 
       return '/login'
@@ -70,8 +92,8 @@ router.beforeEach(async (to) => {
   const publicPages = ['/', '/login']
   const authRequired = !publicPages.includes(to.path)
 
-  if (authRequired && !auth.user) {
-    auth.setReturnUrl(to.fullPath)
+  if (authRequired && !auth.IsAuthenticated) {
+    auth.SetReturnUrl(to.fullPath) // store original destination before starting the auth process
     return '/login'
   }
 })

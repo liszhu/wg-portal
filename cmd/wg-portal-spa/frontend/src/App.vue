@@ -9,7 +9,10 @@ const auth = authStore()
 onMounted(async () => {
   console.log("Starting WireGuard Portal frontend...")
 
-  await auth.loadProviders()
+  await auth.LoadProviders()
+  try {
+    await auth.LoadSession() // reload login data from session, ignore errors
+  } catch (e) {}
 
   console.log("WireGuard Portal ready!")
 })
@@ -68,7 +71,7 @@ const languageFlag = computed(() => {
               <div class="dropdown-divider"></div>
               <a class="dropdown-item" href="/user/profile"><i class="fas fa-user"></i> {{ $t('menu.profile') }}</a>
               <div class="dropdown-divider"></div>
-              <a class="dropdown-item" href="#logout" @click.prevent="auth.logout"><i class="fas fa-sign-out-alt"></i> {{ $t('menu.logout')
+              <a class="dropdown-item" href="#logout" @click.prevent="auth.Logout"><i class="fas fa-sign-out-alt"></i> {{ $t('menu.logout')
               }}</a>
             </div>
           </div>
