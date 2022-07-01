@@ -128,6 +128,12 @@ func (s *webServer) setupFrontendApiRoutes() {
 		s.corsMiddleware(), s.authenticationApiHandler.AuthenticationMiddleware(""))
 
 	apiGroup.GET("/ping", s.frontendApiHandler.GetPing())
+
+	// Interface routes
+	apiGroup.GET("/interfaces", s.frontendApiHandler.GetInterfaces())
+
+	// Peer routes
+	apiGroup.GET("/peers", s.frontendApiHandler.GetPeers())
 }
 
 func (s *webServer) corsMiddleware() gin.HandlerFunc {

@@ -1,4 +1,7 @@
 import { defineStore } from 'pinia'
+import {apiWrapper} from "../helpers/fetch-wrapper";
+import {notify} from "@kyvg/vue3-notification";
+import {interfaceStore} from "./interfaces";
 
 export const peerStore = defineStore({
   id: 'peers',
@@ -61,102 +64,55 @@ export const peerStore = defineStore({
 
       this.calculatePages()
     },
-    async fetch() {
-      this.fetching = true
-      /*const response = await fetch('/data/new-arrivals.json');
-      try {
-        const result = await response.json();
-        this.peers = result.peers;
-      } catch (err) {
-        this.peers = [];
-        console.error('Error loading peers:', err);
-        return err;
-      }*/
-      this.peers = [{
-        Identifier: "id1",
-        Name:"Testing name"
-      },{
-        Identifier: "id2",
-        Name:"Another test"
-      },{
-        Identifier: "id3",
-        Name:"Some name"
-      },{
-        Identifier: "id4",
-        Name:"Wireguard"
-      },{
-        Identifier: "id5",
-        Name:"User"
-      },{
-        Identifier: "id6",
-        Name:"VPN User"
-      },{
-        Identifier: "id7",
-        Name:"VPN User 2"
-      },{
-        Identifier: "id8",
-        Name:"WG User"
-      },{
-        Identifier: "id9",
-        Name:"Max Muster"
-      },{
-        Identifier: "id10",
-        Name:"Max Sample"
-      },{
-        Identifier: "id11",
-        Name:"A very long name"
-      },{
-        Identifier: "id12",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id13",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id14",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id15",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id16",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id17",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id18",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id19",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id20",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id21",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id22",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id23",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id24",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id25",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id26",
-        Name:"Testing name 2"
-      },{
-        Identifier: "id27",
-        Name:"Testing name 2"
-      }]
+    async LoadSomePeers(offset, pageSize) {
+      apiWrapper.get(`/peers` + query)
+          .then(peers => {
+            this.peers = peers
+            this.calculatePages()
+          })
+          .catch(error => {
+            this.peers = []
+            console.log("Failed to load peers: ", error)
+            notify({
+              title: "Backend Connection Failure",
+              text: "Failed to load peers!",
+            })
+          })
+    },
+    async LoadPeers() {
+      this.peers = [] // reset peers
 
-      this.fetching = false
-      this.calculatePages()
+      const pageSize = 50 // load 50 peers at a time
+
+      let offset = 0
+      let fetching = true
+      let result = {}
+      let allResults = []
+
+      let iface = interfaceStore().GetSelected
+      if (!iface) {
+        return // no interface, nothing to load
+      }
+
+      while(fetching) {
+        if(offset === 0 || result.MoreRecords === true) {
+          let query = "?offset=" + offset + "&pagesize=" + pageSize + "&interface=" + iface.Identifier
+          try {
+            result = await apiWrapper.get(`/peers` + query)
+            console.log("RESPONSE:", result)
+            console.log("RESPONSE RECS:", result.Records)
+          } catch (e) {
+            console.log("peer load error")
+            return Promise.reject(e.Message)
+          }
+          offset += pageSize
+        } else if(result.MoreRecords === false) {
+          fetching = false
+        }
+
+        allResults = allResults.concat(result.Records)
+      }
+      this.peers = allResults
     }
   }
 })

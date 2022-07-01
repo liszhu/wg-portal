@@ -15,9 +15,9 @@ const searchState = ref("close")
 const viewedPeerId = ref("")
 const editPeerId = ref("")
 
-onMounted(() => {
-  interfaces.fetch()
-  peers.fetch()
+onMounted(async () => {
+  await interfaces.LoadInterfaces()
+  await peers.LoadPeers()
 })
 </script>
 

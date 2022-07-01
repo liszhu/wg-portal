@@ -1,5 +1,8 @@
 import { defineStore } from 'pinia'
 
+import {apiWrapper} from '../helpers/fetch-wrapper.js'
+import {notify} from "@kyvg/vue3-notification";
+
 export const interfaceStore = defineStore({
   id: 'interfaces',
   state: () => ({
@@ -10,30 +13,20 @@ export const interfaceStore = defineStore({
   getters: {
     Count: (state) => state.interfaces.length,
     All: (state) => state.interfaces,
-    GetSelected: (state) => state.interfaces.find((i) => i.Identifier === state.selected),
-    isFetching: (state) => state.fetching,
+    GetSelected: (state) => state.interfaces.find((i) => i.Identifier === state.selected) || state.interfaces[0],
   },
   actions: {
-    async fetch() {
-      this.fetching = true;
-      /*const response = await fetch('/data/new-arrivals.json');
-      try {
-        const result = await response.json();
-        this.interfaces = result.interfaces;
-      } catch (err) {
-        this.interfaces = [];
-        console.error('Error loading interfaces:', err);
-        return err;
-      }*/
-      this.interfaces = [{
-        Identifier: "wg0",
-        Mode:"server"
-      },{
-        Identifier: "wg1",
-        Mode:"client"
-      }];
-
-      this.fetching = false;
+    async LoadInterfaces() {
+      apiWrapper.get(`/interfaces`)
+          .then(interfaces => this.interfaces = interfaces)
+          .catch(error => {
+            this.interfaces = []
+            console.log("Failed to load interfaces: ", error)
+            notify({
+              title: "Backend Connection Failure",
+              text: "Failed to load interfaces!",
+            })
+          })
     }
   }
 })

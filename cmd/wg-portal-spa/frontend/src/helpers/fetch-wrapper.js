@@ -7,8 +7,30 @@ export const fetchWrapper = {
     delete: request('DELETE')
 };
 
+export const apiWrapper = {
+    get: apiRequest('GET'),
+    post: apiRequest('POST'),
+    put: apiRequest('PUT'),
+    delete: apiRequest('DELETE')
+};
+
 function request(method) {
     return (url, body = undefined) => {
+        const requestOptions = {
+            method,
+            headers: authHeader(url)
+        };
+        if (body) {
+            requestOptions.headers['Content-Type'] = 'application/json';
+            requestOptions.body = JSON.stringify(body);
+        }
+        return fetch(url, requestOptions).then(handleResponse);
+    }
+}
+
+function apiRequest(method) {
+    return (path, body = undefined) => {
+        const url = WGPORTAL_BACKEND_BASE_URL + "/frontend/api/v1" + path
         const requestOptions = {
             method,
             headers: authHeader(url)
