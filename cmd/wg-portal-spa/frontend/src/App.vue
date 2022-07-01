@@ -50,32 +50,29 @@ const languageFlag = computed(() => {
           <li class="nav-item">
             <RouterLink class="nav-link" :to="{ name: 'home' }">{{ $t('menu.home') }}</RouterLink>
           </li>
-          <li class="nav-item">
+          <li class="nav-item" v-if="auth.IsAuthenticated && auth.IsAdmin">
             <RouterLink class="nav-link" :to="{ name: 'interfaces' }">{{ $t('menu.interfaces') }}</RouterLink>
           </li>
-          <li class="nav-item">
+          <li class="nav-item" v-if="auth.IsAuthenticated && auth.IsAdmin">
             <RouterLink class="nav-link" :to="{ name: 'users' }">{{ $t('menu.users') }}</RouterLink>
           </li>
         </ul>
 
         <div class="navbar-nav d-flex justify-content-end">
-          <div class="nav-item dropdown">
+          <div class="nav-item dropdown" v-if="auth.IsAuthenticated">
             <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true"
-              aria-expanded="false">{{ $t('menu.firstname') }} {{ $t('menu.lastname') }}</a>
-            <!-- <li class="nav-item">
-            <RouterLink class="nav-link" :to="{ name: 'users' }">{{ $t('hello') }}</RouterLink>
-          </li> -->
+              aria-expanded="false">{{ auth.User.Firstname }} {{ auth.User.Lastname }}</a>
             <div class="dropdown-menu">
-              <a class="dropdown-item" href="/admin"><i class="fas fa-cogs"></i> {{ $t('menu.admin') }}</a>
-              <a class="dropdown-item" href="/admin/users"><i class="fas fa-users-cog"></i> {{ $t('menu.user') }}</a>
+              <a class="dropdown-item" href="/user/profile">
+                <i class="fas fa-user"></i> {{ $t('menu.profile') }}
+              </a>
               <div class="dropdown-divider"></div>
-              <a class="dropdown-item" href="/user/profile"><i class="fas fa-user"></i> {{ $t('menu.profile') }}</a>
-              <div class="dropdown-divider"></div>
-              <a class="dropdown-item" href="#logout" @click.prevent="auth.Logout"><i class="fas fa-sign-out-alt"></i> {{ $t('menu.logout')
-              }}</a>
+              <a class="dropdown-item" href="#" @click.prevent="auth.Logout">
+                <i class="fas fa-sign-out-alt"></i> {{ $t('menu.logout') }}
+              </a>
             </div>
           </div>
-          <div class="nav-item">
+          <div class="nav-item" v-if="!auth.IsAuthenticated">
             <RouterLink class="nav-link" :to="{ name: 'login' }">
               <i class="fas fa-sign-in-alt fa-sm fa-fw me-2"></i>{{ $t('menu.login') }}
             </RouterLink>

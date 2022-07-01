@@ -15,9 +15,11 @@ export const authStore = defineStore({
         returnUrl: localStorage.getItem('returnUrl')
     }),
     getters: {
-        UserIdentifier: (state) => state.user || 'unknown',
+        UserIdentifier: (state) => state.user?.Identifier || 'unknown',
+        User: (state) => state.user,
         LoginProviders: (state) => state.providers,
         IsAuthenticated: (state) => state.user != null,
+        IsAdmin: (state) => state.user?.IsAdmin || false,
         ReturnUrl: (state) => state.returnUrl || '/',
     },
     actions: {
@@ -49,7 +51,7 @@ export const authStore = defineStore({
                 .then(session => {
                     if (session.LoggedIn === true) {
                         this.ResetReturnUrl()
-                        this.setUserInfo(session.UserIdentifier)
+                        this.setUserInfo(session)
                         return session.UserIdentifier
                     } else {
                         this.setUserInfo(null)
@@ -66,7 +68,7 @@ export const authStore = defineStore({
             return fetchWrapper.post(`${baseUrl}/login`, { username, password })
                 .then(user =>  {
                     this.ResetReturnUrl()
-                    this.setUserInfo(user.Identifier)
+                    this.setUserInfo(user)
                     return user.Identifier
                 })
                 .catch(err => {
@@ -95,12 +97,29 @@ export const authStore = defineStore({
             await router.push('/login')
         },
         // -- internal setters
-        setUserInfo(uid) {
-            this.user = uid
+        setUserInfo(userInfo) {
             // store user details and jwt in local storage to keep user logged in between page refreshes
-            if (uid) {
-                localStorage.setItem('user', JSON.stringify(uid))
+            if (userInfo) {
+                if ('UserIdentifier' in userInfo) { // session object
+                    this.user = {
+                        Identifier: userInfo['UserIdentifier'],
+                        Firstname: userInfo['UserFirstname'],
+                        Lastname: userInfo['UserLastname'],
+                        Email: userInfo['UserEmail'],
+                        IsAdmin: userInfo['IsAdmin']
+                    }
+                } else { // user object
+                    this.user = {
+                        Identifier: userInfo['Identifier'],
+                        Firstname: userInfo['Firstname'],
+                        Lastname: userInfo['Lastname'],
+                        Email: userInfo['Email'],
+                        IsAdmin: userInfo['IsAdmin']
+                    }
+                }
+                localStorage.setItem('user', JSON.stringify(this.user))
             } else {
+                this.user = null
                 localStorage.removeItem('user')
             }
         },

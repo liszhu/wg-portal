@@ -31,15 +31,27 @@ func (h *authenticationApiHandler) GetSessionInfo() gin.HandlerFunc {
 		currentSession := h.session.GetData(c)
 
 		var loggedInUid *string
+		var firstname *string
+		var lastname *string
+		var email *string
 		if currentSession.LoggedIn {
 			uid := string(currentSession.UserIdentifier)
+			f := currentSession.Firstname
+			l := currentSession.Lastname
+			e := currentSession.Email
 			loggedInUid = &uid
+			firstname = &f
+			lastname = &l
+			email = &e
 		}
 
 		c.JSON(http.StatusOK, SessionInfoResponse{
 			LoggedIn:       currentSession.LoggedIn,
 			IsAdmin:        currentSession.IsAdmin,
 			UserIdentifier: loggedInUid,
+			UserFirstname:  firstname,
+			UserLastname:   lastname,
+			UserEmail:      email,
 		})
 	}
 }

@@ -1,4 +1,7 @@
 <script setup>
+  import {authStore} from "../stores/auth";
+
+  const auth = authStore()
 </script>
 
 <template>
@@ -9,7 +12,7 @@
   <p class="lead">{{ $t('home.abstract') }}</p>
 
 
-  <div class="bg-light p-5">
+  <div class="bg-light p-5" v-if="auth.IsAuthenticated">
     <h2 class="display-5">{{ $t('home.profiles.h1') }}</h2>
     <p class="lead">{{ $t('home.profiles.abstract') }}</p>
     <hr class="my-4">
@@ -19,7 +22,7 @@
     </p>
   </div>
 
-  <div class="bg-light p-5 mt-4">
+  <div class="bg-light p-5 mt-4" v-if="auth.IsAuthenticated && auth.IsAdmin">
     <h2 class="display-5">{{ $t('home.admin.h1') }}</h2>
     <p class="lead">{{ $t('home.admin.abstract') }}</p>
     <hr class="my-4">
