@@ -48,6 +48,8 @@ func LoadConfig() (*Config, error) {
 	cfg.Frontend.SessionSecret = "wgPortalSession"
 	cfg.Frontend.GinDebug = true
 
+	cfg.Backend.Core.ExternalUrl = "http://localhost:3000" // enable if running frontend via npm run dev
+
 	/*cfgFileName := "config.yml"
 	if envCfgFileName := os.Getenv("WG_PORTAL_CONFIG"); envCfgFileName != "" {
 		cfgFileName = envCfgFileName
