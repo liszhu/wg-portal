@@ -1,8 +1,7 @@
 <script setup>
-import Modal from "../components/Modal.vue";
-import Confirmation from "../components/Confirmation.vue";
 import PeerViewModal from "../components/PeerViewModal.vue";
 import PeerEditModal from "../components/PeerEditModal.vue";
+import InterfaceEditModal from "../components/InterfaceEditModal.vue";
 
 import {onMounted, ref} from "vue";
 import {peerStore} from "../stores/peers";
@@ -14,6 +13,7 @@ const peers = peerStore()
 const searchState = ref("close")
 const viewedPeerId = ref("")
 const editPeerId = ref("")
+const editInterfaceId = ref("")
 
 onMounted(async () => {
   await interfaces.LoadInterfaces()
@@ -22,21 +22,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <!--Modal title="Tet" :visible="true" :close-on-backdrop="true">
-    <template #default>
-      <p>Lorum ipsum</p>
-    </template>
-    <template #footer>
-      <div class="flex-fill text-start">
-        <button class="btn btn-danger" type="button">Delete</button>
-      </div>
-      <button type="button" class="btn btn-secondary">Close</button>
-      <button type="button" class="btn btn-primary">Save changes</button>
-    </template>
-  </Modal>
-  <Confirmation></Confirmation-->
   <PeerViewModal :peerId="viewedPeerId" :visible="viewedPeerId!==''" @close="viewedPeerId=''"></PeerViewModal>
   <PeerEditModal :peerId="editPeerId" :visible="editPeerId!==''" @close="editPeerId=''"></PeerEditModal>
+  <InterfaceEditModal :interfaceId="editInterfaceId" :visible="editInterfaceId!==''" @close="editInterfaceId=''"></InterfaceEditModal>
 
   <!-- Headline and interface selector -->
   <div class="page-header row">
@@ -49,7 +37,9 @@ onMounted(async () => {
       </div>
       <div class="form-group">
         <div class="input-group mb-3">
-          <button class="input-group-text btn btn-primary" title="Add new interface"><i class="fa-solid fa-plus-circle"></i></button>
+          <button class="input-group-text btn btn-primary" title="Add new interface" @click.prevent="editInterfaceId='#NEW#'">
+            <i class="fa-solid fa-plus-circle"></i>
+          </button>
           <select class="form-select" :disabled="interfaces.Count===0" v-model="interfaces.selected">
             <option v-if="interfaces.Count===0" value="nothing">{{ $t('interfaces.notAvailable') }}</option>
             <option v-for="iface in interfaces.All" :key="iface.Identifier" :value="iface.Identifier">{{iface.Identifier}}</option>
@@ -72,7 +62,6 @@ onMounted(async () => {
   <!-- Interface overview -->
   <div class="row" v-if="interfaces.Count!==0">
     <div class="col-lg-12">
-
       <div class="card border-secondary mb-4" style="min-height: 15rem;">
         <div class="card-header">
           <div class="row">
@@ -83,7 +72,7 @@ onMounted(async () => {
               <a class="btn-link" href="#" title="Show interface configuration"><i class="fas fa-eye"></i></a>
               <a class="ms-5 btn-link" href="#" title="Download interface configuration"><i class="fas fa-download"></i></a>
               <a class="ms-5 btn-link" href="#" title="Write interface configuration file"><i class="fas fa-save"></i></a>
-              <a class="ms-5 btn-link" href="#" title="Edit interface settings"><i class="fas fa-cog"></i></a>
+              <a class="ms-5 btn-link" href="#" title="Edit interface settings" @click.prevent="editInterfaceId=interfaces.GetSelected.Identifier"><i class="fas fa-cog"></i></a>
             </div>
           </div>
         </div>

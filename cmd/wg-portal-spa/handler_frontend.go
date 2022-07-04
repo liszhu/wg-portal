@@ -2,13 +2,10 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"strconv"
 	"text/template"
 	"time"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/h44z/wg-portal/internal/model"
 
@@ -65,8 +62,6 @@ func (h *frontendApiHandler) GetInterfaces() gin.HandlerFunc {
 			return
 		}
 
-		interfaces = core.NewInMemoryPaginator([]*model.Interface{{Identifier: "wg0"}}) // TODO: remove sample data
-
 		allInterfaces, err := interfaces.
 			Sort(func(a, b *model.Interface) bool { return a.Identifier < b.Identifier }).
 			Paginate(0)
@@ -94,13 +89,6 @@ func (h *frontendApiHandler) GetPeers() gin.HandlerFunc {
 		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 		pageSize, _ := strconv.Atoi(c.DefaultQuery("pagesize", "25"))
 
-		logrus.Info("offset =", offset, "; pagesize =", pageSize)
-		tp := make([]*model.Peer, 500) // TODO: remove sample data
-		for i := 0; i < len(tp); i++ {
-			tp[i] = &model.Peer{Identifier: model.PeerIdentifier(fmt.Sprintf("peer%03d", i)), DisplayName: fmt.Sprintf("The Peer %03d", i)}
-		}
-		peers = core.NewInMemoryPaginator(tp)
-
 		allPeers, err := peers.
 			Sort(func(a, b *model.Peer) bool { return a.Identifier < b.Identifier }).
 			Size(pageSize).
@@ -120,5 +108,30 @@ func (h *frontendApiHandler) GetPeers() gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, PagedResponse[*model.Peer]{Records: allPeers, MoreRecords: !finished})
+	}
+}
+
+func (h *frontendApiHandler) GetFreshInterface() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		preparedInterface, err := h.backend.PrepareNewInterface(c.Request.Context(), "")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, GenericResponse{Message: err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, preparedInterface)
+	}
+}
+
+func (h *frontendApiHandler) GetFreshPeer() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		interfaceId := c.Query("interface")
+		preparedPeer, err := h.backend.PrepareNewPeer(c.Request.Context(), model.InterfaceIdentifier(interfaceId))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, GenericResponse{Message: err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, preparedPeer)
 	}
 }

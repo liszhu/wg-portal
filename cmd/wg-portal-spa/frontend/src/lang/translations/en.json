@@ -88,6 +88,10 @@
       "new": "Create new peer",
       "edit": "Edit peer"
     },
+    "interface": {
+      "new": "Create new interface",
+      "edit": "Edit interface"
+    },
     "endpoint": {
       "new": "Create new endpoint",
       "edit": "Edit endpoint"

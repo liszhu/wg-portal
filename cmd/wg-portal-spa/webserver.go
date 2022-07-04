@@ -131,9 +131,11 @@ func (s *webServer) setupFrontendApiRoutes() {
 
 	// Interface routes
 	apiGroup.GET("/interfaces", s.frontendApiHandler.GetInterfaces())
+	apiGroup.GET("/interfaces/prepare", s.frontendApiHandler.GetFreshInterface())
 
 	// Peer routes
 	apiGroup.GET("/peers", s.frontendApiHandler.GetPeers())
+	apiGroup.GET("/peers/prepare", s.frontendApiHandler.GetFreshPeer())
 }
 
 func (s *webServer) corsMiddleware() gin.HandlerFunc {

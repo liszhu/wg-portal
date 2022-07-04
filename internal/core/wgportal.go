@@ -480,6 +480,10 @@ func (w *wgPortal) DeleteInterface(ctx context.Context, identifier model.Interfa
 }
 
 func (w *wgPortal) PrepareNewInterface(ctx context.Context, identifier model.InterfaceIdentifier) (*model.Interface, error) {
+	if identifier == "" { // find free identifier
+		identifier = w.getFreshInterfaceId()
+	}
+
 	keyPair, err := w.wg.GetFreshKeypair()
 	if err != nil {
 		return nil, err
@@ -511,6 +515,28 @@ func (w *wgPortal) PrepareNewInterface(ctx context.Context, identifier model.Int
 	}
 
 	return i, nil
+}
+
+func (w *wgPortal) getFreshInterfaceId() model.InterfaceIdentifier {
+	interfaces, err := w.wg.GetInterfaces()
+	if err != nil {
+		return "wg0" // just use wg0 as default...
+	}
+
+	var index = 0
+	var freshId model.InterfaceIdentifier
+	for {
+		freshId = model.InterfaceIdentifier(fmt.Sprintf("wg%d", index))
+
+		for _, iface := range interfaces {
+			if iface.Identifier == freshId {
+				index++
+				break
+			}
+		}
+
+		return freshId
+	}
 }
 
 func (w *wgPortal) GetInterfaceWgQuickConfig(ctx context.Context, identifier model.InterfaceIdentifier) (io.Reader, error) {
