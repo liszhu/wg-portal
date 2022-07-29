@@ -29,6 +29,7 @@ type User struct {
 	Lastname   string `form:"lastname" binding:"omitempty"`
 	Phone      string `form:"phone" binding:"omitempty"`
 	Department string `form:"department" binding:"omitempty"`
+	Notes      string `form:"notes" binding:"omitempty"`
 
 	// optional, integrated password authentication
 	Password PrivateString `form:"password" binding:"omitempty"`

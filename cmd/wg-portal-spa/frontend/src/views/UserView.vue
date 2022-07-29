@@ -1,11 +1,15 @@
 <script setup>
-import Confirmation from "../components/Confirmation.vue";
 import {userStore} from "../stores/users";
 import {ref,onMounted} from "vue";
+import UserEditModal from "../components/UserEditModal.vue";
+import UserViewModal from "../components/UserViewModal.vue";
 
 const users = userStore()
 
 const searchState = ref("close")
+
+const editUserId = ref("")
+const viewedUserId = ref("")
 
 onMounted(() => {
   users.fetch()
@@ -13,7 +17,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <!--Confirmation></Confirmation -->
+  <UserEditModal :userId="editUserId" :visible="editUserId!==''" @close="editUserId=''"></UserEditModal>
+  <UserViewModal :userId="viewedUserId" :visible="viewedUserId!==''" @close="viewedUserId=''"></UserViewModal>
 
   <!-- User list -->
   <div class="mt-4 row">
@@ -73,8 +78,8 @@ onMounted(() => {
             <span v-else><i class="fa fa-circle-xmark"></i></span>
           </td>
           <td class="text-center">
-            <a href="#" title="Show peers"><i class="fa-solid fa-magnifying-glass me-2"></i></a>
-            <a href="#" title="Edit peer"><i class="fas fa-cog"></i></a>
+            <a @click.prevent="viewedUserId=user.Identifier" href="#" title="Show user"><i class="fa-solid fa-magnifying-glass me-2"></i></a>
+            <a @click.prevent="editUserId=user.Identifier" href="#" title="Edit user"><i class="fas fa-cog me-2"></i></a>
           </td>
         </tr>
       </tbody>

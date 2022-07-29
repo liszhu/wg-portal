@@ -125,11 +125,11 @@ function close() {
         <li class="nav-item">
           <a class="nav-link active" data-bs-toggle="tab" href="#interface">Interface</a>
         </li>
-        <li class="nav-item">
+        <li v-if="formData.Type==='server'" class="nav-item">
           <a class="nav-link" data-bs-toggle="tab" href="#peerdefaults">Peer Defaults</a>
         </li>
       </ul>
-      <div id="myTabContent" class="tab-content">
+      <div id="interfaceTabs" class="tab-content">
         <div class="tab-pane fade active show" id="interface">
           <fieldset>
             <legend class="mt-4">General</legend>
@@ -166,7 +166,7 @@ function close() {
               <label class="form-label mt-4">{{ $t('modals.interfaceedit.ips') }}</label>
               <input type="text" class="form-control" placeholder="IP Address" v-model="formData.AddressStr">
             </div>
-            <div class="form-group">
+            <div v-if="formData.Type==='server'" class="form-group">
               <label class="form-label mt-4">{{ $t('modals.interfaceedit.listenport') }}</label>
               <input type="text" class="form-control" placeholder="Listen Port" v-model="formData.ListenPort">
             </div>
