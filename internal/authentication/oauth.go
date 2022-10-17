@@ -3,7 +3,7 @@ package authentication
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -40,7 +40,7 @@ type OauthAuthenticator interface {
 	RegistrationEnabled() bool
 }
 
-type plainOauthAuthenticator struct {
+type PlainOauthAuthenticator struct {
 	name                string
 	cfg                 *oauth2.Config
 	userInfoEndpoint    string
@@ -49,8 +49,8 @@ type plainOauthAuthenticator struct {
 	registrationEnabled bool
 }
 
-func NewPlainOauthAuthenticator(_ context.Context, callbackUrl string, cfg *OAuthProvider) (*plainOauthAuthenticator, error) {
-	var authenticator = &plainOauthAuthenticator{}
+func NewPlainOauthAuthenticator(_ context.Context, callbackUrl string, cfg *OAuthProvider) (*PlainOauthAuthenticator, error) {
+	var authenticator = &PlainOauthAuthenticator{}
 
 	authenticator.name = cfg.ProviderName
 	authenticator.client = &http.Client{
@@ -74,23 +74,23 @@ func NewPlainOauthAuthenticator(_ context.Context, callbackUrl string, cfg *OAut
 	return authenticator, nil
 }
 
-func (p plainOauthAuthenticator) RegistrationEnabled() bool {
+func (p PlainOauthAuthenticator) RegistrationEnabled() bool {
 	return p.registrationEnabled
 }
 
-func (p plainOauthAuthenticator) GetType() AuthenticatorType {
+func (p PlainOauthAuthenticator) GetType() AuthenticatorType {
 	return AuthenticatorTypeOAuth
 }
 
-func (p plainOauthAuthenticator) AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string {
+func (p PlainOauthAuthenticator) AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string {
 	return p.cfg.AuthCodeURL(state, opts...)
 }
 
-func (p plainOauthAuthenticator) Exchange(ctx context.Context, code string, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+func (p PlainOauthAuthenticator) Exchange(ctx context.Context, code string, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
 	return p.cfg.Exchange(ctx, code, opts...)
 }
 
-func (p plainOauthAuthenticator) GetUserInfo(ctx context.Context, token *oauth2.Token, _ string) (map[string]interface{}, error) {
+func (p PlainOauthAuthenticator) GetUserInfo(ctx context.Context, token *oauth2.Token, _ string) (map[string]interface{}, error) {
 	req, err := http.NewRequest("GET", p.userInfoEndpoint, nil)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create user info get request")
@@ -103,7 +103,7 @@ func (p plainOauthAuthenticator) GetUserInfo(ctx context.Context, token *oauth2.
 		return nil, errors.WithMessage(err, "failed to get user info")
 	}
 	defer response.Body.Close()
-	contents, err := ioutil.ReadAll(response.Body)
+	contents, err := io.ReadAll(response.Body)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to read response body")
 	}
@@ -117,7 +117,7 @@ func (p plainOauthAuthenticator) GetUserInfo(ctx context.Context, token *oauth2.
 	return userFields, nil
 }
 
-func (p plainOauthAuthenticator) ParseUserInfo(raw map[string]interface{}) (*AuthenticatorUserInfo, error) {
+func (p PlainOauthAuthenticator) ParseUserInfo(raw map[string]interface{}) (*AuthenticatorUserInfo, error) {
 	isAdmin, _ := strconv.ParseBool(mapDefaultString(raw, p.userInfoMapping.IsAdmin, ""))
 	userInfo := &AuthenticatorUserInfo{
 		Identifier: model.UserIdentifier(mapDefaultString(raw, p.userInfoMapping.UserIdentifier, "")),
@@ -132,7 +132,7 @@ func (p plainOauthAuthenticator) ParseUserInfo(raw map[string]interface{}) (*Aut
 	return userInfo, nil
 }
 
-type oidcAuthenticator struct {
+type OidcAuthenticator struct {
 	name                string
 	provider            *oidc.Provider
 	verifier            *oidc.IDTokenVerifier
@@ -141,9 +141,9 @@ type oidcAuthenticator struct {
 	registrationEnabled bool
 }
 
-func NewOidcAuthenticator(ctx context.Context, callbackUrl string, cfg *OpenIDConnectProvider) (*oidcAuthenticator, error) {
+func NewOidcAuthenticator(ctx context.Context, callbackUrl string, cfg *OpenIDConnectProvider) (*OidcAuthenticator, error) {
 	var err error
-	var authenticator = &oidcAuthenticator{}
+	var authenticator = &OidcAuthenticator{}
 
 	authenticator.name = cfg.ProviderName
 	authenticator.provider, err = oidc.NewProvider(ctx, cfg.BaseUrl)
@@ -169,23 +169,23 @@ func NewOidcAuthenticator(ctx context.Context, callbackUrl string, cfg *OpenIDCo
 	return authenticator, nil
 }
 
-func (o oidcAuthenticator) RegistrationEnabled() bool {
+func (o OidcAuthenticator) RegistrationEnabled() bool {
 	return o.registrationEnabled
 }
 
-func (o oidcAuthenticator) GetType() AuthenticatorType {
+func (o OidcAuthenticator) GetType() AuthenticatorType {
 	return AuthenticatorTypeOidc
 }
 
-func (o oidcAuthenticator) AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string {
+func (o OidcAuthenticator) AuthCodeURL(state string, opts ...oauth2.AuthCodeOption) string {
 	return o.cfg.AuthCodeURL(state, opts...)
 }
 
-func (o oidcAuthenticator) Exchange(ctx context.Context, code string, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
+func (o OidcAuthenticator) Exchange(ctx context.Context, code string, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
 	return o.cfg.Exchange(ctx, code, opts...)
 }
 
-func (o oidcAuthenticator) GetUserInfo(ctx context.Context, token *oauth2.Token, nonce string) (map[string]interface{}, error) {
+func (o OidcAuthenticator) GetUserInfo(ctx context.Context, token *oauth2.Token, nonce string) (map[string]interface{}, error) {
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok {
 		return nil, errors.New("token does not contain id_token")
@@ -206,7 +206,7 @@ func (o oidcAuthenticator) GetUserInfo(ctx context.Context, token *oauth2.Token,
 	return tokenFields, nil
 }
 
-func (o oidcAuthenticator) ParseUserInfo(raw map[string]interface{}) (*AuthenticatorUserInfo, error) {
+func (o OidcAuthenticator) ParseUserInfo(raw map[string]interface{}) (*AuthenticatorUserInfo, error) {
 	isAdmin, _ := strconv.ParseBool(mapDefaultString(raw, o.userInfoMapping.IsAdmin, ""))
 	userInfo := &AuthenticatorUserInfo{
 		Identifier: model.UserIdentifier(mapDefaultString(raw, o.userInfoMapping.UserIdentifier, "")),

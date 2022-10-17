@@ -3,9 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"net/url"
-	"path"
-	"strings"
 
 	"github.com/h44z/wg-portal/internal/authentication"
 
@@ -38,73 +35,22 @@ func New(cfg *config.Config) (*App, error) {
 	}
 	dbRepo := adapters.NewSqlRepository(db)
 
-	return &App{
+	a := &App{
 		cfg:   cfg,
 		users: dbRepo,
-	}, nil
+	}
+
+	err = a.setup(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return a, nil
 }
 
 func (a *App) setup(ctx context.Context) error {
 	if err := a.setupExternalAuthProviders(ctx); err != nil {
 		return fmt.Errorf("external authentication provider error: %w", err)
-	}
-
-	return nil
-}
-
-func (a *App) setupExternalAuthProviders(ctx context.Context) error {
-	extUrl, err := url.Parse(a.cfg.Web.ExternalUrl)
-	if err != nil {
-		return fmt.Errorf("failed to parse external url: %w", err)
-	}
-
-	for i := range a.cfg.Auth.OpenIDConnect {
-		providerCfg := &a.cfg.Auth.OpenIDConnect[i]
-		providerId := strings.ToLower(providerCfg.ProviderName)
-
-		if _, exists := a.oauthAuthenticators[providerId]; exists {
-			return fmt.Errorf("auth provider with name %s is already registerd", providerId)
-		}
-
-		redirectUrl := *extUrl
-		redirectUrl.Path = path.Join(redirectUrl.Path, "/auth/login/", providerId, "/callback")
-
-		authenticator, err := authentication.NewOidcAuthenticator(ctx, redirectUrl.String(), providerCfg)
-		if err != nil {
-			return fmt.Errorf("failed to setup oidc authentication provider %s: %w", providerCfg.ProviderName, err)
-		}
-		a.oauthAuthenticators[providerId] = authenticator
-	}
-	for i := range a.cfg.Auth.OAuth {
-		providerCfg := &a.cfg.Auth.OAuth[i]
-		providerId := strings.ToLower(providerCfg.ProviderName)
-
-		if _, exists := a.oauthAuthenticators[providerId]; exists {
-			return fmt.Errorf("auth provider with name %s is already registerd", providerId)
-		}
-
-		redirectUrl := *extUrl
-		redirectUrl.Path = path.Join(redirectUrl.Path, "/auth/login/", providerId, "/callback")
-
-		authenticator, err := authentication.NewPlainOauthAuthenticator(ctx, redirectUrl.String(), providerCfg)
-		if err != nil {
-			return fmt.Errorf("failed to setup oauth authentication provider %s: %w", providerId, err)
-		}
-		a.oauthAuthenticators[providerId] = authenticator
-	}
-	for i := range a.cfg.Auth.Ldap {
-		providerCfg := &a.cfg.Auth.Ldap[i]
-		providerId := strings.ToLower(providerCfg.URL)
-
-		if _, exists := a.ldapAuthenticators[providerId]; exists {
-			return fmt.Errorf("auth provider with name %s is already registerd", providerId)
-		}
-
-		authenticator, err := authentication.NewLdapAuthenticator(ctx, providerCfg)
-		if err != nil {
-			return fmt.Errorf("failed to setup ldap authentication provider %s: %w", providerId, err)
-		}
-		a.ldapAuthenticators[providerId] = authenticator
 	}
 
 	return nil

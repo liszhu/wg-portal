@@ -23,12 +23,12 @@ type LdapAuthenticator interface {
 	SynchronizationEnabled() bool
 }
 
-type ldapAuthenticator struct {
+type StatelessLdapAuthenticator struct {
 	cfg *LdapProvider
 }
 
-func NewLdapAuthenticator(_ context.Context, cfg *LdapProvider) (*ldapAuthenticator, error) {
-	var authenticator = &ldapAuthenticator{}
+func NewLdapAuthenticator(_ context.Context, cfg *LdapProvider) (*StatelessLdapAuthenticator, error) {
+	var authenticator = &StatelessLdapAuthenticator{}
 
 	authenticator.cfg = cfg
 
@@ -42,15 +42,15 @@ func NewLdapAuthenticator(_ context.Context, cfg *LdapProvider) (*ldapAuthentica
 	return authenticator, nil
 }
 
-func (l *ldapAuthenticator) RegistrationEnabled() bool {
+func (l StatelessLdapAuthenticator) RegistrationEnabled() bool {
 	return l.cfg.RegistrationEnabled
 }
 
-func (l *ldapAuthenticator) SynchronizationEnabled() bool {
+func (l StatelessLdapAuthenticator) SynchronizationEnabled() bool {
 	return l.cfg.Synchronize
 }
 
-func (l *ldapAuthenticator) PlaintextAuthentication(userId model.UserIdentifier, plainPassword string) error {
+func (l StatelessLdapAuthenticator) PlaintextAuthentication(userId model.UserIdentifier, plainPassword string) error {
 	conn, err := l.connect()
 	if err != nil {
 		return errors.WithMessage(err, "failed to setup connection")
@@ -90,12 +90,12 @@ func (l *ldapAuthenticator) PlaintextAuthentication(userId model.UserIdentifier,
 	return nil
 }
 
-func (l *ldapAuthenticator) HashedAuthentication(_ model.UserIdentifier, _ string) error {
+func (l StatelessLdapAuthenticator) HashedAuthentication(_ model.UserIdentifier, _ string) error {
 	// TODO: is this possible?
 	return errors.New("unimplemented")
 }
 
-func (l *ldapAuthenticator) GetUserInfo(_ context.Context, userId model.UserIdentifier) (map[string]interface{}, error) {
+func (l StatelessLdapAuthenticator) GetUserInfo(_ context.Context, userId model.UserIdentifier) (map[string]interface{}, error) {
 	conn, err := l.connect()
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to setup connection")
@@ -129,7 +129,7 @@ func (l *ldapAuthenticator) GetUserInfo(_ context.Context, userId model.UserIden
 	return users[0], nil
 }
 
-func (l *ldapAuthenticator) GetAllUserInfos(_ context.Context) ([]map[string]interface{}, error) {
+func (l StatelessLdapAuthenticator) GetAllUserInfos(_ context.Context) ([]map[string]interface{}, error) {
 	conn, err := l.connect()
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to setup connection")
@@ -154,7 +154,7 @@ func (l *ldapAuthenticator) GetAllUserInfos(_ context.Context) ([]map[string]int
 	return users, nil
 }
 
-func (l *ldapAuthenticator) convertLdapEntries(sr *ldap.SearchResult) []map[string]interface{} {
+func (l StatelessLdapAuthenticator) convertLdapEntries(sr *ldap.SearchResult) []map[string]interface{} {
 	users := make([]map[string]interface{}, len(sr.Entries))
 
 	fieldMap := l.cfg.FieldMap
@@ -173,7 +173,7 @@ func (l *ldapAuthenticator) convertLdapEntries(sr *ldap.SearchResult) []map[stri
 	return users
 }
 
-func (l *ldapAuthenticator) getLdapSearchAttributes() []string {
+func (l StatelessLdapAuthenticator) getLdapSearchAttributes() []string {
 	fieldMap := l.cfg.FieldMap
 	attrs := []string{"dn", fieldMap.UserIdentifier}
 	if fieldMap.Email != "" {
@@ -198,7 +198,7 @@ func (l *ldapAuthenticator) getLdapSearchAttributes() []string {
 	return uniqueStringSlice(attrs)
 }
 
-func (l ldapAuthenticator) ParseUserInfo(raw map[string]interface{}) (*AuthenticatorUserInfo, error) {
+func (l StatelessLdapAuthenticator) ParseUserInfo(raw map[string]interface{}) (*AuthenticatorUserInfo, error) {
 	isAdmin, err := userIsInAdminGroup(raw[l.cfg.FieldMap.GroupMembership].([][]byte), l.cfg.adminGroupDN)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to check admin group")
@@ -216,7 +216,7 @@ func (l ldapAuthenticator) ParseUserInfo(raw map[string]interface{}) (*Authentic
 	return userInfo, nil
 }
 
-func (l *ldapAuthenticator) connect() (*ldap.Conn, error) {
+func (l StatelessLdapAuthenticator) connect() (*ldap.Conn, error) {
 	tlsConfig := &tls.Config{InsecureSkipVerify: !l.cfg.CertValidation}
 	conn, err := ldap.DialURL(l.cfg.URL, ldap.DialWithTLSConfig(tlsConfig))
 	if err != nil {
@@ -236,7 +236,7 @@ func (l *ldapAuthenticator) connect() (*ldap.Conn, error) {
 	return conn, nil
 }
 
-func (l *ldapAuthenticator) disconnect(conn *ldap.Conn) {
+func (l StatelessLdapAuthenticator) disconnect(conn *ldap.Conn) {
 	if conn != nil {
 		conn.Close()
 	}

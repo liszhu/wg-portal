@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
+	"path"
 	"strings"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -14,6 +16,68 @@ import (
 	"github.com/h44z/wg-portal/internal/model"
 	"github.com/sirupsen/logrus"
 )
+
+func (a *App) setupExternalAuthProviders(ctx context.Context) error {
+	extUrl, err := url.Parse(a.cfg.Web.ExternalUrl)
+	if err != nil {
+		return fmt.Errorf("failed to parse external url: %w", err)
+	}
+
+	a.oauthAuthenticators = make(map[string]authentication.OauthAuthenticator,
+		len(a.cfg.Auth.OpenIDConnect)+len(a.cfg.Auth.OAuth))
+	a.ldapAuthenticators = make(map[string]authentication.LdapAuthenticator)
+
+	for i := range a.cfg.Auth.OpenIDConnect {
+		providerCfg := &a.cfg.Auth.OpenIDConnect[i]
+		providerId := strings.ToLower(providerCfg.ProviderName)
+
+		if _, exists := a.oauthAuthenticators[providerId]; exists {
+			return fmt.Errorf("auth provider with name %s is already registerd", providerId)
+		}
+
+		redirectUrl := *extUrl
+		redirectUrl.Path = path.Join(redirectUrl.Path, "/auth/login/", providerId, "/callback")
+
+		authenticator, err := authentication.NewOidcAuthenticator(ctx, redirectUrl.String(), providerCfg)
+		if err != nil {
+			return fmt.Errorf("failed to setup oidc authentication provider %s: %w", providerCfg.ProviderName, err)
+		}
+		a.oauthAuthenticators[providerId] = authenticator
+	}
+	for i := range a.cfg.Auth.OAuth {
+		providerCfg := &a.cfg.Auth.OAuth[i]
+		providerId := strings.ToLower(providerCfg.ProviderName)
+
+		if _, exists := a.oauthAuthenticators[providerId]; exists {
+			return fmt.Errorf("auth provider with name %s is already registerd", providerId)
+		}
+
+		redirectUrl := *extUrl
+		redirectUrl.Path = path.Join(redirectUrl.Path, "/auth/login/", providerId, "/callback")
+
+		authenticator, err := authentication.NewPlainOauthAuthenticator(ctx, redirectUrl.String(), providerCfg)
+		if err != nil {
+			return fmt.Errorf("failed to setup oauth authentication provider %s: %w", providerId, err)
+		}
+		a.oauthAuthenticators[providerId] = authenticator
+	}
+	for i := range a.cfg.Auth.Ldap {
+		providerCfg := &a.cfg.Auth.Ldap[i]
+		providerId := strings.ToLower(providerCfg.URL)
+
+		if _, exists := a.ldapAuthenticators[providerId]; exists {
+			return fmt.Errorf("auth provider with name %s is already registerd", providerId)
+		}
+
+		authenticator, err := authentication.NewLdapAuthenticator(ctx, providerCfg)
+		if err != nil {
+			return fmt.Errorf("failed to setup ldap authentication provider %s: %w", providerId, err)
+		}
+		a.ldapAuthenticators[providerId] = authenticator
+	}
+
+	return nil
+}
 
 func (a *App) GetExternalLoginProviders(_ context.Context) []model.LoginProviderInfo {
 	authProviders := make([]model.LoginProviderInfo, 0, len(a.cfg.Auth.OAuth)+len(a.cfg.Auth.OpenIDConnect))
