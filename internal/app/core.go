@@ -7,7 +7,6 @@ import (
 	"github.com/h44z/wg-portal/internal/authentication"
 
 	"github.com/h44z/wg-portal/internal/adapters"
-	"github.com/h44z/wg-portal/internal/common"
 	"github.com/h44z/wg-portal/internal/config"
 	"github.com/h44z/wg-portal/internal/model"
 )
@@ -29,7 +28,7 @@ type App struct {
 }
 
 func New(cfg *config.Config) (*App, error) {
-	db, err := common.NewDatabase(cfg.Database)
+	db, err := adapters.NewDatabase(cfg.Database)
 	if err != nil {
 		return nil, err
 	}

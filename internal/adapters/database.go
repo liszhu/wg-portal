@@ -1,4 +1,4 @@
-package common
+package adapters
 
 import (
 	"os"
