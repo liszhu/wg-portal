@@ -369,7 +369,7 @@ func (m *wgCtrlManager) RemovePeer(id model.PeerIdentifier) error {
 	return nil
 }
 
-func (m *wgCtrlManager) GetImportableInterfaces() ([]*model.ImportableInterface, error) {
+func (m *wgCtrlManager) GetImportableInterfaces() ([]*model.PhysicalInterface, error) {
 	devices, err := m.wg.Devices()
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to get WireGuard device list")
@@ -378,7 +378,7 @@ func (m *wgCtrlManager) GetImportableInterfaces() ([]*model.ImportableInterface,
 	m.mux.RLock()
 	defer m.mux.RUnlock()
 
-	interfaces := make([]*model.ImportableInterface, len(devices))
+	interfaces := make([]*model.PhysicalInterface, len(devices))
 	for d, device := range devices {
 		if _, exists := m.interfaces[model.InterfaceIdentifier(device.Name)]; exists {
 			continue // interface already managed, skip
@@ -405,7 +405,7 @@ func (m *wgCtrlManager) GetImportableInterfaces() ([]*model.ImportableInterface,
 	return interfaces, nil
 }
 
-func (m *wgCtrlManager) ImportInterface(cfg *model.ImportableInterface) error {
+func (m *wgCtrlManager) ImportInterface(cfg *model.PhysicalInterface) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
 
@@ -562,8 +562,8 @@ func (m *wgCtrlManager) getPeer(id model.PeerIdentifier) (*model.Peer, error) {
 	return nil, ErrPeerNotFound
 }
 
-func (m *wgCtrlManager) convertWireGuardInterface(device *wgtypes.Device) (*model.ImportableInterface, error) {
-	cfg := &model.ImportableInterface{}
+func (m *wgCtrlManager) convertWireGuardInterface(device *wgtypes.Device) (*model.PhysicalInterface, error) {
+	cfg := &model.PhysicalInterface{}
 
 	cfg.Interface.Identifier = model.InterfaceIdentifier(device.Name)
 	cfg.Interface.Type = model.InterfaceTypeServer // default assume that the imported device is a server device
@@ -589,7 +589,7 @@ func (m *wgCtrlManager) convertWireGuardInterface(device *wgtypes.Device) (*mode
 	return cfg, nil
 }
 
-func (m *wgCtrlManager) convertWireGuardPeer(peer *wgtypes.Peer, dev *model.ImportableInterface) error {
+func (m *wgCtrlManager) convertWireGuardPeer(peer *wgtypes.Peer, dev *model.PhysicalInterface) error {
 	peerCfg := model.Peer{}
 	peerCfg.Identifier = model.PeerIdentifier(peer.PublicKey.String())
 	peerCfg.KeyPair = model.KeyPair{

@@ -1,7 +1,10 @@
 package model
 
 import (
+	"errors"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -36,6 +39,56 @@ type User struct {
 	Disabled *time.Time    `gorm:"index;column:disabled"` // if this field is set, the peer is disabled
 }
 
-func (u User) IsDisabled() bool {
+func (u *User) IsDisabled() bool {
 	return u.Disabled != nil
+}
+
+func (u *User) CanChangePassword() error {
+	if u.Source == UserSourceDatabase {
+		return nil
+	}
+
+	return errors.New("password change only allowed for database source")
+}
+
+func (u *User) EditAllowed() error {
+	if u.Source == UserSourceDatabase {
+		return nil
+	}
+
+	return errors.New("edit only allowed for database source")
+}
+
+func (u *User) CheckPassword(password string) error {
+	if u.Source != UserSourceDatabase {
+		return errors.New("invalid user source")
+	}
+
+	if u.Password == "" {
+		return errors.New("empty user password")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); err != nil {
+		return errors.New("wrong password")
+	}
+
+	return nil
+}
+
+func (u *User) HashPassword() error {
+	if u.Password == "" {
+		return nil // nothing to hash
+	}
+
+	if _, err := bcrypt.Cost([]byte(u.Password)); err == nil {
+		return nil // password already hashed
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	u.Password = PrivateString(hash)
+
+	return nil
 }

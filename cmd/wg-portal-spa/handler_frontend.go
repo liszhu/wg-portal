@@ -3,24 +3,22 @@ package main
 import (
 	"bytes"
 	"net/http"
-	"strconv"
 	"text/template"
 	"time"
 
-	"github.com/h44z/wg-portal/internal/model"
+	"github.com/h44z/wg-portal/internal/app"
 
 	"github.com/gin-gonic/gin"
-	"github.com/h44z/wg-portal/internal/core"
 )
 
 type frontendApiHandler struct {
 	cfg     *Config
-	backend core.WgPortal
+	backend *app.App
 
 	tpl *template.Template
 }
 
-func newFrontendApiHandler(cfg *Config, backend core.WgPortal) *frontendApiHandler {
+func newFrontendApiHandler(cfg *Config, backend *app.App) *frontendApiHandler {
 	h := &frontendApiHandler{cfg: cfg, backend: backend}
 	h.parseTemplates()
 
@@ -35,7 +33,7 @@ func (h *frontendApiHandler) GetFrontendConfigJs() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf := &bytes.Buffer{}
 		err := h.tpl.ExecuteTemplate(buf, "frontend_config.js.gotpl", gin.H{
-			"BackendUrl": h.cfg.Backend.Core.ExternalUrl,
+			"BackendUrl": h.cfg.Backend.Web.ExternalUrl,
 		})
 		if err != nil {
 			c.Status(http.StatusInternalServerError)
@@ -54,7 +52,7 @@ func (h *frontendApiHandler) GetPing() gin.HandlerFunc {
 
 func (h *frontendApiHandler) GetInterfaces() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		searchOptions := core.InterfaceSearchOptions()
+		/*searchOptions := core.InterfaceSearchOptions()
 
 		interfaces, err := h.backend.GetInterfaces(c.Request.Context(), searchOptions)
 		if err != nil {
@@ -70,13 +68,13 @@ func (h *frontendApiHandler) GetInterfaces() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusOK, allInterfaces)
+		c.JSON(http.StatusOK, allInterfaces)*/
 	}
 }
 
 func (h *frontendApiHandler) GetPeers() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		interfaceId := c.Query("interface")
+		/*interfaceId := c.Query("interface")
 
 		searchOptions := core.PeerSearchOptions().WithInterface(model.InterfaceIdentifier(interfaceId))
 
@@ -107,31 +105,31 @@ func (h *frontendApiHandler) GetPeers() gin.HandlerFunc {
 			finished = true
 		}
 
-		c.JSON(http.StatusOK, PagedResponse[*model.Peer]{Records: allPeers, MoreRecords: !finished})
+		c.JSON(http.StatusOK, PagedResponse[*model.Peer]{Records: allPeers, MoreRecords: !finished})*/
 	}
 }
 
 func (h *frontendApiHandler) GetFreshInterface() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		preparedInterface, err := h.backend.PrepareNewInterface(c.Request.Context(), "")
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, GenericResponse{Message: err.Error()})
-			return
-		}
+		/*	preparedInterface, err := h.backend.PrepareNewInterface(c.Request.Context(), "")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, GenericResponse{Message: err.Error()})
+				return
+			}
 
-		c.JSON(http.StatusOK, preparedInterface)
+			c.JSON(http.StatusOK, preparedInterface)*/
 	}
 }
 
 func (h *frontendApiHandler) GetFreshPeer() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		interfaceId := c.Query("interface")
+		/*interfaceId := c.Query("interface")
 		preparedPeer, err := h.backend.PrepareNewPeer(c.Request.Context(), model.InterfaceIdentifier(interfaceId))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, GenericResponse{Message: err.Error()})
 			return
 		}
 
-		c.JSON(http.StatusOK, preparedPeer)
+		c.JSON(http.StatusOK, preparedPeer)*/
 	}
 }

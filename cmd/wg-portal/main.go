@@ -4,7 +4,9 @@ import (
 	"context"
 	"syscall"
 
-	"github.com/h44z/wg-portal/internal/core"
+	"github.com/h44z/wg-portal/internal/app"
+
+	"github.com/h44z/wg-portal/internal/config"
 
 	"github.com/h44z/wg-portal/internal"
 	"github.com/sirupsen/logrus"
@@ -15,16 +17,17 @@ func main() {
 
 	logrus.Infof("Starting WireGuard Portal server, version %s...", internal.Version)
 
-	cfg, err := core.LoadConfig()
+	cfg, err := config.GetConfig()
 	internal.AssertNoError(err)
 
-	portal, err := core.NewWgPortal(cfg)
+	application, err := app.New(cfg)
 	internal.AssertNoError(err)
 
 	logrus.Info("Started WireGuard Portal server")
 
-	go portal.RunBackgroundTasks(ctx)
+	providers := application.GetExternalLoginProviders(ctx)
 
+	logrus.Info(providers)
 	/*
 		users, err := portal.GetUsers(ctx, nil)
 		internal.AssertNoError(err)

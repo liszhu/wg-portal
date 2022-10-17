@@ -20,8 +20,8 @@ type interfaceManager interface {
 }
 
 type importManager interface {
-	GetImportableInterfaces() ([]*model.ImportableInterface, error)
-	ImportInterface(cfg *model.ImportableInterface) error
+	GetImportableInterfaces() ([]*model.PhysicalInterface, error)
+	ImportInterface(cfg *model.PhysicalInterface) error
 }
 
 type configFileGenerator interface {

@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 const (
 	InterfaceTypeServer InterfaceType = "server"
@@ -20,7 +23,7 @@ type Interface struct {
 	KeyPair                        // private/public Key of the server interface
 	ListenPort int                 // the listening port, for example: 51820
 
-	AddressStr   string // the interface ip addresses, comma separated
+	Addresses    []Cidr `gorm:"many2many:interface_addresses;"` // the interface ip addresses
 	DnsStr       string // the dns server that should be set if the interface is up, comma separated
 	DnsSearchStr string // the dns search option string that should be set if the interface is up, will be appended to DnsStr
 
@@ -58,31 +61,39 @@ type Interface struct {
 	PeerDefPostUp   string // default action that is executed after the device is up
 	PeerDefPreDown  string // default action that is executed before the device is down
 	PeerDefPostDown string // default action that is executed after the device is down
-
-	// Stats will be lazy loaded by the application logic if needed
-	Stats *InterfaceStats `gorm:"-"`
 }
 
-func (i Interface) IsValid() bool {
+func (i *Interface) IsValid() bool {
 	return true // TODO: implement check
 }
 
-func (i Interface) IsDisabled() bool {
+func (i *Interface) IsDisabled() bool {
 	return i.Disabled != nil
 }
 
-type ImportableInterface struct {
-	Interface
-	ImportLocation string
-	ImportType     string
+func (i *Interface) AddressStr() string {
+	cidrs := make([]string, len(i.Addresses))
+	for j := range i.Addresses {
+		cidrs[j] = i.Addresses[j].String()
+	}
 
-	Peers []Peer
+	return strings.Join(cidrs, ",")
 }
 
-type InterfaceStats struct {
-	BaseModel
+type PhysicalInterface struct {
+	Identifier InterfaceIdentifier // device name, for example: wg0
+	KeyPair                        // private/public Key of the server interface
+	ListenPort int                 // the listening port, for example: 51820
 
-	Identifier InterfaceIdentifier `gorm:"primaryKey"`
+	Addresses []Cidr // the interface ip addresses
+
+	Mtu          int   // the device MTU
+	FirewallMark int32 // a firewall mark
+
+	DeviceUp bool // device status
+
+	ImportSource string // import source (wgctrl, file, ...)
+	DeviceType   string // device type (Linux kernel, userspace, ...)
 
 	BytesUpload   uint64
 	BytesDownload uint64

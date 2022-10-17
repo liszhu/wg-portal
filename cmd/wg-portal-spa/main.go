@@ -4,8 +4,10 @@ import (
 	"context"
 	"syscall"
 
+	"github.com/h44z/wg-portal/internal/app"
+	"github.com/h44z/wg-portal/internal/config"
+
 	"github.com/h44z/wg-portal/internal"
-	"github.com/h44z/wg-portal/internal/core"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,7 +19,7 @@ func main() {
 	cfg, err := LoadConfig()
 	internal.AssertNoError(err)
 
-	backend, err := core.NewWgPortal(&cfg.Backend)
+	backend, err := app.New(cfg.Backend)
 	internal.AssertNoError(err)
 
 	webService, err := NewServer(cfg, backend)
@@ -35,11 +37,11 @@ func main() {
 }
 
 func LoadConfig() (*Config, error) {
-	backendCfg, err := core.LoadConfig()
+	backendCfg, err := config.GetConfig()
 	internal.AssertNoError(err)
 
 	cfg := &Config{
-		Backend: *backendCfg,
+		Backend: backendCfg,
 	}
 
 	// default config
@@ -48,7 +50,7 @@ func LoadConfig() (*Config, error) {
 	cfg.Frontend.SessionSecret = "wgPortalSession"
 	cfg.Frontend.GinDebug = true
 
-	cfg.Backend.Core.ExternalUrl = "http://localhost:3000" // enable if running frontend via npm run dev
+	cfg.Backend.Web.ExternalUrl = "http://localhost:5000" // enable if running frontend via npm run dev
 
 	/*cfgFileName := "config.yml"
 	if envCfgFileName := os.Getenv("WG_PORTAL_CONFIG"); envCfgFileName != "" {

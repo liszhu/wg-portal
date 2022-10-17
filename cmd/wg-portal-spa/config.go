@@ -1,9 +1,11 @@
 package main
 
-import "github.com/h44z/wg-portal/internal/core"
+import (
+	"github.com/h44z/wg-portal/internal/config"
+)
 
 type Config struct {
-	Backend core.Config `yaml:"backend"`
+	Backend *config.Config `yaml:"backend"`
 
 	Frontend FrontendConfig `yaml:"frontend"`
 }

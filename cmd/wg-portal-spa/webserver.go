@@ -10,11 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/h44z/wg-portal/internal/app"
+
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/memstore"
 	"github.com/gin-gonic/gin"
 	"github.com/h44z/wg-portal/internal"
-	"github.com/h44z/wg-portal/internal/core"
 	"github.com/sirupsen/logrus"
 	ginlogrus "github.com/toorop/gin-logrus"
 )
@@ -29,7 +30,7 @@ type webServer struct {
 	*frontendApiHandler
 }
 
-func NewServer(cfg *Config, backend core.WgPortal) (*webServer, error) {
+func NewServer(cfg *Config, backend *app.App) (*webServer, error) {
 	sessionStore := GinSessionStore{sessionIdentifier: "wgPortalSession"}
 	s := &webServer{
 		cfg:                      cfg,
@@ -49,7 +50,7 @@ func NewServer(cfg *Config, backend core.WgPortal) (*webServer, error) {
 }
 
 func (s *webServer) setupLogging() {
-	switch s.cfg.Backend.Core.LogLevel {
+	switch s.cfg.Backend.Advanced.LogLevel {
 	case "trace":
 		logrus.SetLevel(logrus.TraceLevel)
 	case "debug":
@@ -87,7 +88,7 @@ func (s *webServer) setupGin() {
 	cookieStore.Options(sessions.Options{
 		Path:     "/",
 		MaxAge:   86400, // auth session is valid for 1 day
-		Secure:   strings.HasPrefix(s.cfg.Backend.Core.ExternalUrl, "https"),
+		Secure:   strings.HasPrefix(s.cfg.Backend.Web.ExternalUrl, "https"),
 		HttpOnly: true,
 	})
 	s.server.Use(sessions.Sessions("authsession", cookieStore))

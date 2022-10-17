@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"sort"
-	"strings"
 
 	"github.com/h44z/wg-portal/internal/model"
 	"github.com/pkg/errors"
@@ -158,90 +157,4 @@ func (m *wgCtrlManager) GetFreshIps(id model.InterfaceIdentifier) (string, error
 	}
 
 	return m.IpAddressesToString(freshIPs), nil
-}
-
-//  http://play.golang.org/p/m8TNTtygK0
-func increaseIP(ip *netlink.Addr) {
-	for j := len(ip.IP) - 1; j >= 0; j-- {
-		ip.IP[j]++
-		if ip.IP[j] > 0 {
-			break
-		}
-	}
-}
-
-// BroadcastAddr returns the last address in the given network (for IPv6), or the broadcast address.
-func broadcastAddr(n *netlink.Addr) *netlink.Addr {
-	// The golang net package doesn't make it easy to calculate the broadcast address. :(
-	var broadcast = net.IPv6zero
-	var mask = []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff} // ensure that mask also has 16 bytes (also for IPv4)
-	if len(n.Mask) == 4 {
-		for i := 0; i < 4; i++ {
-			mask[12+i] = n.Mask[i]
-		}
-	} else {
-		for i := 0; i < 16; i++ {
-			mask[i] = n.Mask[i]
-		}
-	}
-	for i := 0; i < len(n.IP); i++ {
-		broadcast[i] = n.IP[i] | ^mask[i]
-	}
-	return &netlink.Addr{
-		IPNet: &net.IPNet{IP: broadcast, Mask: n.Mask},
-	}
-}
-
-func isV4(n *netlink.Addr) bool {
-	if n.IP.To4() != nil {
-		return true
-	}
-
-	return false
-}
-
-func parseCIDR(cidr string) (*netlink.Addr, error) {
-	addr, err := netlink.ParseAddr(cidr)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to parse cidr")
-	}
-
-	// Use the 16byte representation for all IP families.
-	if len(addr.IP) != 16 {
-		addr.IP = addr.IP.To16()
-	}
-
-	return addr, nil
-}
-
-func (m *wgCtrlManager) ParseIpAddressString(addrStr string) ([]*netlink.Addr, error) {
-	rawAddresses := strings.Split(addrStr, ",")
-	addresses := make([]*netlink.Addr, 0, len(rawAddresses))
-	for i := range rawAddresses {
-		rawAddress := strings.TrimSpace(rawAddresses[i])
-		if rawAddress == "" {
-			continue // skip empty string
-		}
-		address, err := parseCIDR(rawAddress)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse IP address %s", rawAddress)
-		}
-
-		addresses = append(addresses, address)
-	}
-
-	sort.Slice(addresses, func(i, j int) bool {
-		return bytes.Compare(addresses[i].IP, addresses[j].IP) < 0
-	})
-
-	return addresses, nil
-}
-
-func (m *wgCtrlManager) IpAddressesToString(addresses []netlink.Addr) string {
-	addressesStr := make([]string, len(addresses))
-	for i := range addresses {
-		addressesStr[i] = addresses[i].String()
-	}
-
-	return strings.Join(addressesStr, ",")
 }

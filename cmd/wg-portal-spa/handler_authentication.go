@@ -6,14 +6,14 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/h44z/wg-portal/internal/model"
+	"github.com/h44z/wg-portal/internal/app"
 
 	"github.com/gin-gonic/gin"
-	"github.com/h44z/wg-portal/internal/core"
+	"github.com/h44z/wg-portal/internal/model"
 )
 
 type authenticationApiHandler struct {
-	backend core.WgPortal
+	backend *app.App
 	session SessionStore
 }
 
@@ -279,9 +279,9 @@ func (h *authenticationApiHandler) AuthenticationMiddleware(scope string) gin.Ha
 }
 
 func (h *authenticationApiHandler) isUserStillValid(ctx context.Context, id model.UserIdentifier) bool {
-	if user, err := h.backend.GetUser(ctx, id); err != nil || user.IsDisabled() {
+	/*if user, err := h.backend.GetUser(ctx, id); err != nil || user.IsDisabled() {
 		return false
-	}
+	}*/
 	return true
 }
 
